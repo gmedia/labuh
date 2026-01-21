@@ -1,0 +1,63 @@
+version: "3.8"
+
+services:
+  # Labuh Backend API
+  labuh:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3000
+      - DATABASE_URL=sqlite:/data/labuh.db?mode=rwc
+      - JWT_SECRET=${JWT_SECRET:-super-secret-jwt-key-change-me}
+      - JWT_EXPIRATION_HOURS=24
+      - CADDY_ADMIN_API=http://caddy:2019
+      - CADDY_CONFIG_PATH=/etc/caddy/Caddyfile
+      - CONTAINERD_SOCKET=/run/containerd/containerd.sock
+      - RUST_LOG=labuh=debug,tower_http=debug
+    volumes:
+      - labuh-data:/data
+      - /run/containerd/containerd.sock:/run/containerd/containerd.sock
+    depends_on:
+      - caddy
+    networks:
+      - labuh-network
+
+  # Caddy Reverse Proxy
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - labuh-network
+
+  # Frontend (SvelteKit)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      - PUBLIC_API_URL=http://labuh:3000
+    depends_on:
+      - labuh
+    networks:
+      - labuh-network
+
+volumes:
+  labuh-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  labuh-network:
+    driver: bridge

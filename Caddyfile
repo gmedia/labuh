@@ -1,0 +1,21 @@
+# Labuh Platform - Caddyfile
+# This file is managed by Labuh for dynamic reverse proxy configuration
+
+{
+    admin 0.0.0.0:2019
+}
+
+# Labuh API
+localhost:80 {
+    handle /api/* {
+        reverse_proxy labuh:3000
+    }
+
+    # Frontend (SvelteKit)
+    handle {
+        reverse_proxy frontend:5173
+    }
+}
+
+# Dynamic routes will be added below by Labuh
+# Format: {domain} { reverse_proxy {container_ip}:{port} }
