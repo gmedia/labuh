@@ -15,20 +15,54 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-backend:
-    name: Build Backend - ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-            name: linux-x86_64
-            cross: false
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
-            name: linux-aarch64
-            cross: true
+  build-backend-x86:
+    name: Build Backend - x86_64
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev pkg-config
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-x86-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp target/release/labuh dist/
+          cp -r migrations dist/ 2>/dev/null || true
+          cp .env.example dist/ 2>/dev/null || true
+          cp -r deploy dist/
+          cd dist && tar -czvf ../labuh-linux-x86_64.tar.gz *
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: labuh-linux-x86_64
+          path: labuh-linux-x86_64.tar.gz
+
+  build-backend-arm64:
+    name: Build Backend - aarch64
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -37,46 +71,39 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: aarch64-unknown-linux-gnu
 
-      - name: Install dependencies (x86_64)
-        if: matrix.cross == false
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libssl-dev pkg-config
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-arm64-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install cross-compilation tools (aarch64)
-        if: matrix.cross == true
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-          # Install cross-compiled OpenSSL
-          sudo apt-get install -y libssl-dev:arm64 || true
-          # Use cross for easier cross-compilation
-          cargo install cross --git https://github.com/cross-rs/cross
+      - name: Install cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
 
-      - name: Build (native)
-        if: matrix.cross == false
-        run: cargo build --release --target ${{ matrix.target }}
-
-      - name: Build (cross)
-        if: matrix.cross == true
-        run: cross build --release --target ${{ matrix.target }}
+      - name: Build with cross
+        run: cross build --release --target aarch64-unknown-linux-gnu
 
       - name: Package
         run: |
           mkdir -p dist
-          cp target/${{ matrix.target }}/release/labuh dist/
+          cp target/aarch64-unknown-linux-gnu/release/labuh dist/
           cp -r migrations dist/ 2>/dev/null || true
           cp .env.example dist/ 2>/dev/null || true
           cp -r deploy dist/
-          cd dist && tar -czvf ../labuh-${{ matrix.name }}.tar.gz *
+          cd dist && tar -czvf ../labuh-linux-aarch64.tar.gz *
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: labuh-${{ matrix.name }}
-          path: labuh-${{ matrix.name }}.tar.gz
+          name: labuh-linux-aarch64
+          path: labuh-linux-aarch64.tar.gz
 
   build-frontend:
     name: Build Frontend
@@ -106,13 +133,12 @@ jobs:
       - name: Package
         run: |
           cd frontend
-          # SvelteKit outputs to .svelte-kit/output or build depending on adapter
+          # Find the build output
           if [ -d "build" ]; then
             tar -czvf ../labuh-frontend.tar.gz build package.json
-          elif [ -d ".svelte-kit/output" ]; then
-            tar -czvf ../labuh-frontend.tar.gz .svelte-kit/output package.json
           else
-            # Fallback: package the whole dist
+            # Package source for node adapter
+            tar -czvf ../labuh-frontend.tar.gz .svelte-kit package.json svelte.config.js vite.config.ts src static --exclude=node_modules 2>/dev/null || \
             tar -czvf ../labuh-frontend.tar.gz . --exclude=node_modules
           fi
 
@@ -124,7 +150,7 @@ jobs:
 
   release:
     name: Create Release
-    needs: [build-backend, build-frontend]
+    needs: [build-backend-x86, build-backend-arm64, build-frontend]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -132,6 +158,9 @@ jobs:
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
+
+      - name: List files
+        run: find . -type f -name "*.tar.gz"
 
       - name: Get version
         id: version
