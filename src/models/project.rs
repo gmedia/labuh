@@ -11,8 +11,8 @@ pub struct Project {
     pub image: Option<String>,
     pub status: String,
     pub port: Option<i64>,
-    pub env_vars: Option<String>,  // JSON
-    pub domains: Option<String>,   // JSON array
+    pub env_vars: Option<String>, // JSON
+    pub domains: Option<String>,  // JSON array
     pub user_id: String,
     pub created_at: String,
     pub updated_at: String,

@@ -2,9 +2,9 @@ use argon2::{
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
-use password_hash::rand_core::OsRng;
 use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
+use password_hash::rand_core::OsRng;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use uuid::Uuid;
@@ -14,7 +14,7 @@ use crate::models::{AuthResponse, CreateUser, LoginRequest, User, UserResponse};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: String,  // user id
+    pub sub: String, // user id
     pub email: String,
     pub role: String,
     pub exp: i64,

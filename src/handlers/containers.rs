@@ -7,7 +7,9 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 use crate::error::Result;
-use crate::services::container::{ContainerInfo, ContainerStats, CreateContainerRequest, ImageInfo};
+use crate::services::container::{
+    ContainerInfo, ContainerStats, CreateContainerRequest, ImageInfo,
+};
 use crate::services::ContainerService;
 
 #[derive(Deserialize)]
@@ -79,7 +81,9 @@ async fn get_container_logs(
     Path(id): Path<String>,
     Query(query): Query<LogsQuery>,
 ) -> Result<Json<Vec<String>>> {
-    let logs = container_service.get_container_logs(&id, query.tail).await?;
+    let logs = container_service
+        .get_container_logs(&id, query.tail)
+        .await?;
     Ok(Json(logs))
 }
 

@@ -1,6 +1,6 @@
 use bollard::container::{
     Config, CreateContainerOptions, ListContainersOptions, LogOutput, LogsOptions,
-    RemoveContainerOptions, StartContainerOptions, StopContainerOptions, StatsOptions,
+    RemoveContainerOptions, StartContainerOptions, StatsOptions, StopContainerOptions,
 };
 use bollard::image::{CreateImageOptions, ListImagesOptions, RemoveImageOptions};
 use bollard::Docker;
@@ -66,10 +66,9 @@ impl ContainerService {
             .map_err(|e| AppError::ContainerRuntime(e.to_string()))?;
 
         // Verify connection
-        docker
-            .ping()
-            .await
-            .map_err(|e| AppError::ContainerRuntime(format!("Failed to connect to Docker: {}", e)))?;
+        docker.ping().await.map_err(|e| {
+            AppError::ContainerRuntime(format!("Failed to connect to Docker: {}", e))
+        })?;
 
         Ok(Self {
             docker: Arc::new(docker),
@@ -191,10 +190,18 @@ impl ContainerService {
             match log {
                 Ok(output) => {
                     let line = match output {
-                        LogOutput::StdOut { message } => String::from_utf8_lossy(&message).to_string(),
-                        LogOutput::StdErr { message } => String::from_utf8_lossy(&message).to_string(),
-                        LogOutput::Console { message } => String::from_utf8_lossy(&message).to_string(),
-                        LogOutput::StdIn { message } => String::from_utf8_lossy(&message).to_string(),
+                        LogOutput::StdOut { message } => {
+                            String::from_utf8_lossy(&message).to_string()
+                        }
+                        LogOutput::StdErr { message } => {
+                            String::from_utf8_lossy(&message).to_string()
+                        }
+                        LogOutput::Console { message } => {
+                            String::from_utf8_lossy(&message).to_string()
+                        }
+                        LogOutput::StdIn { message } => {
+                            String::from_utf8_lossy(&message).to_string()
+                        }
                     };
                     result.push(line);
                 }
@@ -256,7 +263,9 @@ impl ContainerService {
             });
         }
 
-        Err(AppError::ContainerRuntime("Failed to get stats".to_string()))
+        Err(AppError::ContainerRuntime(
+            "Failed to get stats".to_string(),
+        ))
     }
 
     /// List all images
@@ -300,7 +309,10 @@ impl ContainerService {
                     }
                 }
                 Err(e) => {
-                    return Err(AppError::ContainerRuntime(format!("Failed to pull image: {}", e)));
+                    return Err(AppError::ContainerRuntime(format!(
+                        "Failed to pull image: {}",
+                        e
+                    )));
                 }
             }
         }

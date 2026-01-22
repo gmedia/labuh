@@ -33,7 +33,9 @@ async fn create_project(
     Extension(current_user): Extension<CurrentUser>,
     Json(input): Json<CreateProject>,
 ) -> Result<Json<ProjectResponse>> {
-    let project = project_service.create_project(&current_user.id, input).await?;
+    let project = project_service
+        .create_project(&current_user.id, input)
+        .await?;
     Ok(Json(project.into()))
 }
 
@@ -43,7 +45,9 @@ async fn update_project(
     Path(id): Path<String>,
     Json(input): Json<UpdateProject>,
 ) -> Result<Json<ProjectResponse>> {
-    let project = project_service.update_project(&id, &current_user.id, input).await?;
+    let project = project_service
+        .update_project(&id, &current_user.id, input)
+        .await?;
     Ok(Json(project.into()))
 }
 
@@ -52,7 +56,9 @@ async fn delete_project(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>> {
-    project_service.delete_project(&id, &current_user.id).await?;
+    project_service
+        .delete_project(&id, &current_user.id)
+        .await?;
     Ok(Json(serde_json::json!({ "status": "deleted" })))
 }
 

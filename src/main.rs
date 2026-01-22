@@ -14,11 +14,11 @@ use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::config::Config;
-use crate::handlers::{
-    auth_routes, container_routes, deploy_routes, health_routes,
-    image_routes, project_routes, streaming_routes, system_routes
-};
 use crate::handlers::auth::protected_auth_routes;
+use crate::handlers::{
+    auth_routes, container_routes, deploy_routes, health_routes, image_routes, project_routes,
+    streaming_routes, system_routes,
+};
 use crate::middleware::auth_middleware;
 use crate::services::{AuthService, CaddyService, ContainerService, DeployService, ProjectService};
 
@@ -62,7 +62,10 @@ async fn main() -> anyhow::Result<()> {
             Some(Arc::new(service))
         }
         Err(e) => {
-            tracing::warn!("Container runtime not available: {}. Container features disabled.", e);
+            tracing::warn!(
+                "Container runtime not available: {}. Container features disabled.",
+                e
+            );
             None
         }
     };
@@ -101,11 +104,10 @@ async fn main() -> anyhow::Result<()> {
             .nest("/projects", deploy_routes(deploy_service));
     }
 
-    let protected_routes = protected_routes
-        .layer(axum_middleware::from_fn_with_state(
-            auth_service.clone(),
-            auth_middleware,
-        ));
+    let protected_routes = protected_routes.layer(axum_middleware::from_fn_with_state(
+        auth_service.clone(),
+        auth_middleware,
+    ));
 
     // Build application router
     let app = Router::new()

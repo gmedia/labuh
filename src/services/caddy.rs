@@ -25,7 +25,12 @@ impl CaddyService {
     }
 
     /// Generate Caddyfile content from routes
-    pub fn generate_caddyfile(&self, routes: &[CaddyRoute], api_upstream: &str, frontend_upstream: &str) -> String {
+    pub fn generate_caddyfile(
+        &self,
+        routes: &[CaddyRoute],
+        api_upstream: &str,
+        frontend_upstream: &str,
+    ) -> String {
         let mut content = String::from(
             r#"# Labuh Platform - Auto-generated Caddyfile
 {
@@ -129,7 +134,10 @@ impl CaddyService {
             }]
         });
 
-        let url = format!("{}/config/apps/http/servers/srv0/routes", self.admin_api_url);
+        let url = format!(
+            "{}/config/apps/http/servers/srv0/routes",
+            self.admin_api_url
+        );
 
         let response = self
             .client
@@ -155,7 +163,10 @@ impl CaddyService {
     /// Remove a route by domain
     pub async fn remove_route(&self, domain: &str) -> Result<()> {
         // Get current config first
-        let url = format!("{}/config/apps/http/servers/srv0/routes", self.admin_api_url);
+        let url = format!(
+            "{}/config/apps/http/servers/srv0/routes",
+            self.admin_api_url
+        );
 
         let response = self
             .client
@@ -181,7 +192,11 @@ impl CaddyService {
         for (index, route) in routes.iter().enumerate() {
             if let Some(matches) = route.get("match") {
                 if let Some(hosts) = matches.get(0).and_then(|m| m.get("host")) {
-                    if hosts.as_array().map(|arr| arr.iter().any(|h| h.as_str() == Some(domain))).unwrap_or(false) {
+                    if hosts
+                        .as_array()
+                        .map(|arr| arr.iter().any(|h| h.as_str() == Some(domain)))
+                        .unwrap_or(false)
+                    {
                         let delete_url = format!("{}/{}", url, index);
                         self.client
                             .delete(&delete_url)
@@ -196,6 +211,9 @@ impl CaddyService {
             }
         }
 
-        Err(AppError::NotFound(format!("Route for domain {} not found", domain)))
+        Err(AppError::NotFound(format!(
+            "Route for domain {} not found",
+            domain
+        )))
     }
 }

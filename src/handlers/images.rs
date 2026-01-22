@@ -27,7 +27,9 @@ async fn pull_image(
     Json(request): Json<PullImageRequest>,
 ) -> Result<Json<serde_json::Value>> {
     container_service.pull_image(&request.image).await?;
-    Ok(Json(serde_json::json!({ "status": "pulled", "image": request.image })))
+    Ok(Json(
+        serde_json::json!({ "status": "pulled", "image": request.image }),
+    ))
 }
 
 async fn remove_image(

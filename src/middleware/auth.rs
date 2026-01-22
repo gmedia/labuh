@@ -8,8 +8,8 @@ use axum::{
 use serde::Serialize;
 use std::sync::Arc;
 
-use crate::services::AuthService;
 use crate::services::auth::Claims;
+use crate::services::AuthService;
 
 #[derive(Clone)]
 pub struct CurrentUser {

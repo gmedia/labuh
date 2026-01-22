@@ -51,9 +51,11 @@ impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
         let (status, error_type, message) = match &self {
             AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized", self.to_string()),
-            AppError::InvalidCredentials => {
-                (StatusCode::UNAUTHORIZED, "invalid_credentials", self.to_string())
-            }
+            AppError::InvalidCredentials => (
+                StatusCode::UNAUTHORIZED,
+                "invalid_credentials",
+                self.to_string(),
+            ),
             AppError::Forbidden => (StatusCode::FORBIDDEN, "forbidden", self.to_string()),
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, "not_found", msg.clone()),
             AppError::Conflict(msg) => (StatusCode::CONFLICT, "conflict", msg.clone()),

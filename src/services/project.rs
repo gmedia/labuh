@@ -3,7 +3,7 @@ use sqlx::SqlitePool;
 use uuid::Uuid;
 
 use crate::error::{AppError, Result};
-use crate::models::{CreateProject, Project, UpdateProject, slugify};
+use crate::models::{slugify, CreateProject, Project, UpdateProject};
 
 pub struct ProjectService {
     pool: SqlitePool,
@@ -16,7 +16,7 @@ impl ProjectService {
 
     pub async fn list_projects(&self, user_id: &str) -> Result<Vec<Project>> {
         let projects = sqlx::query_as::<_, Project>(
-            "SELECT * FROM projects WHERE user_id = ? ORDER BY created_at DESC"
+            "SELECT * FROM projects WHERE user_id = ? ORDER BY created_at DESC",
         )
         .bind(user_id)
         .fetch_all(&self.pool)
@@ -26,25 +26,21 @@ impl ProjectService {
     }
 
     pub async fn get_project(&self, id: &str, user_id: &str) -> Result<Project> {
-        sqlx::query_as::<_, Project>(
-            "SELECT * FROM projects WHERE id = ? AND user_id = ?"
-        )
-        .bind(id)
-        .bind(user_id)
-        .fetch_optional(&self.pool)
-        .await?
-        .ok_or(AppError::NotFound("Project not found".to_string()))
+        sqlx::query_as::<_, Project>("SELECT * FROM projects WHERE id = ? AND user_id = ?")
+            .bind(id)
+            .bind(user_id)
+            .fetch_optional(&self.pool)
+            .await?
+            .ok_or(AppError::NotFound("Project not found".to_string()))
     }
 
     pub async fn get_project_by_slug(&self, slug: &str, user_id: &str) -> Result<Project> {
-        sqlx::query_as::<_, Project>(
-            "SELECT * FROM projects WHERE slug = ? AND user_id = ?"
-        )
-        .bind(slug)
-        .bind(user_id)
-        .fetch_optional(&self.pool)
-        .await?
-        .ok_or(AppError::NotFound("Project not found".to_string()))
+        sqlx::query_as::<_, Project>("SELECT * FROM projects WHERE slug = ? AND user_id = ?")
+            .bind(slug)
+            .bind(user_id)
+            .fetch_optional(&self.pool)
+            .await?
+            .ok_or(AppError::NotFound("Project not found".to_string()))
     }
 
     pub async fn create_project(&self, user_id: &str, input: CreateProject) -> Result<Project> {
@@ -54,7 +50,7 @@ impl ProjectService {
 
         // Check if slug already exists
         let existing = sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*) FROM projects WHERE slug = ? AND user_id = ?"
+            "SELECT COUNT(*) FROM projects WHERE slug = ? AND user_id = ?",
         )
         .bind(&slug)
         .bind(user_id)
@@ -69,7 +65,9 @@ impl ProjectService {
         }
 
         let env_vars = input.env_vars.map(|v| v.to_string());
-        let domains = input.domains.map(|v| serde_json::to_string(&v).unwrap_or_default());
+        let domains = input
+            .domains
+            .map(|v| serde_json::to_string(&v).unwrap_or_default());
 
         sqlx::query(
             r#"
@@ -94,7 +92,12 @@ impl ProjectService {
         self.get_project(&id, user_id).await
     }
 
-    pub async fn update_project(&self, id: &str, user_id: &str, input: UpdateProject) -> Result<Project> {
+    pub async fn update_project(
+        &self,
+        id: &str,
+        user_id: &str,
+        input: UpdateProject,
+    ) -> Result<Project> {
         let existing = self.get_project(id, user_id).await?;
         let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
@@ -103,7 +106,8 @@ impl ProjectService {
         let image = input.image.or(existing.image);
         let port = input.port.or(existing.port);
         let env_vars = input.env_vars.map(|v| v.to_string()).or(existing.env_vars);
-        let domains = input.domains
+        let domains = input
+            .domains
             .map(|v| serde_json::to_string(&v).unwrap_or_default())
             .or(existing.domains);
 
@@ -143,11 +147,16 @@ impl ProjectService {
         Ok(())
     }
 
-    pub async fn update_project_status(&self, id: &str, status: &str, container_id: Option<&str>) -> Result<()> {
+    pub async fn update_project_status(
+        &self,
+        id: &str,
+        status: &str,
+        container_id: Option<&str>,
+    ) -> Result<()> {
         let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
         sqlx::query(
-            "UPDATE projects SET status = ?, container_id = ?, updated_at = ? WHERE id = ?"
+            "UPDATE projects SET status = ?, container_id = ?, updated_at = ? WHERE id = ?",
         )
         .bind(status)
         .bind(container_id)

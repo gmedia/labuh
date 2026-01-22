@@ -29,12 +29,14 @@ fn parse_meminfo() -> (u64, u64) {
 
     for line in content.lines() {
         if line.starts_with("MemTotal:") {
-            total = line.split_whitespace()
+            total = line
+                .split_whitespace()
                 .nth(1)
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(0);
         } else if line.starts_with("MemAvailable:") {
-            available = line.split_whitespace()
+            available = line
+                .split_whitespace()
                 .nth(1)
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(0);
@@ -57,7 +59,8 @@ fn parse_loadavg() -> LoadAverage {
 
 fn parse_uptime() -> u64 {
     let content = fs::read_to_string("/proc/uptime").unwrap_or_default();
-    content.split_whitespace()
+    content
+        .split_whitespace()
         .next()
         .and_then(|s| s.parse::<f64>().ok())
         .map(|f| f as u64)
@@ -113,7 +116,8 @@ async fn system_stats() -> Json<SystemStats> {
 
 fn num_cpus() -> usize {
     let content = fs::read_to_string("/proc/cpuinfo").unwrap_or_default();
-    content.lines()
+    content
+        .lines()
         .filter(|line| line.starts_with("processor"))
         .count()
         .max(1)

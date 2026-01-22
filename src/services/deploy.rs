@@ -29,7 +29,10 @@ impl DeployService {
     /// Deploy a project by creating/starting its container
     pub async fn deploy(&self, project_id: &str, user_id: &str) -> Result<Project> {
         // Get project
-        let project = self.project_service.get_project(project_id, user_id).await?;
+        let project = self
+            .project_service
+            .get_project(project_id, user_id)
+            .await?;
 
         // Ensure project has an image
         let image = project.image.as_ref().ok_or_else(|| {
@@ -39,7 +42,10 @@ impl DeployService {
         // Stop and remove existing container if any
         if let Some(ref container_id) = project.container_id {
             let _ = self.container_service.stop_container(container_id).await;
-            let _ = self.container_service.remove_container(container_id, true).await;
+            let _ = self
+                .container_service
+                .remove_container(container_id, true)
+                .await;
         }
 
         // Pull the image first
@@ -48,13 +54,19 @@ impl DeployService {
 
         // Parse environment variables
         let env_vars: Option<Vec<String>> = project.env_vars.as_ref().and_then(|v| {
-            serde_json::from_str::<serde_json::Value>(v).ok().and_then(|json| {
-                if let serde_json::Value::Object(map) = json {
-                    Some(map.into_iter().map(|(k, v)| format!("{}={}", k, v.as_str().unwrap_or(""))).collect())
-                } else {
-                    None
-                }
-            })
+            serde_json::from_str::<serde_json::Value>(v)
+                .ok()
+                .and_then(|json| {
+                    if let serde_json::Value::Object(map) = json {
+                        Some(
+                            map.into_iter()
+                                .map(|(k, v)| format!("{}={}", k, v.as_str().unwrap_or("")))
+                                .collect(),
+                        )
+                    } else {
+                        None
+                    }
+                })
         });
 
         // Create container name from slug
@@ -70,11 +82,21 @@ impl DeployService {
         };
 
         let container_id = self.container_service.create_container(request).await?;
-        tracing::info!("Created container {} for project {}", container_id, project.name);
+        tracing::info!(
+            "Created container {} for project {}",
+            container_id,
+            project.name
+        );
 
         // Start container
-        self.container_service.start_container(&container_id).await?;
-        tracing::info!("Started container {} for project {}", container_id, project.name);
+        self.container_service
+            .start_container(&container_id)
+            .await?;
+        tracing::info!(
+            "Started container {} for project {}",
+            container_id,
+            project.name
+        );
 
         // Update project with container ID and status
         self.project_service
@@ -95,7 +117,10 @@ impl DeployService {
 
     /// Stop a deployed project
     pub async fn stop(&self, project_id: &str, user_id: &str) -> Result<Project> {
-        let project = self.project_service.get_project(project_id, user_id).await?;
+        let project = self
+            .project_service
+            .get_project(project_id, user_id)
+            .await?;
 
         if let Some(ref container_id) = project.container_id {
             self.container_service.stop_container(container_id).await?;
@@ -113,15 +138,22 @@ impl DeployService {
 
     /// Restart a deployed project
     pub async fn restart(&self, project_id: &str, user_id: &str) -> Result<Project> {
-        let project = self.project_service.get_project(project_id, user_id).await?;
+        let project = self
+            .project_service
+            .get_project(project_id, user_id)
+            .await?;
 
         if let Some(ref container_id) = project.container_id {
-            self.container_service.restart_container(container_id).await?;
+            self.container_service
+                .restart_container(container_id)
+                .await?;
             self.project_service
                 .update_project_status(project_id, "running", Some(container_id))
                 .await?;
         } else {
-            return Err(AppError::Validation("Project has no container to restart".to_string()));
+            return Err(AppError::Validation(
+                "Project has no container to restart".to_string(),
+            ));
         }
 
         self.project_service.get_project(project_id, user_id).await
