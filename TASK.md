@@ -15,11 +15,10 @@
 ### Backend
 
 - **Language**: Rust (untuk performa dan memory efficiency)
-- **Container Runtime**: containerd via [containerd-rs](https://docs.rs/containerd/latest/containerd/)
+- **Container Runtime**: Docker API via bollard (works with containerd via Docker shim)
 - **HTTP Framework**: [Axum](https://docs.rs/axum/latest/axum/) (async, performant, ergonomic)
 - **Database**: SQLite via [SQLx](https://docs.rs/sqlx/latest/sqlx/) (async, compile-time checked queries)
 - **Authentication**: JWT via [jsonwebtoken](https://docs.rs/jsonwebtoken/latest/jsonwebtoken/)
-- **Configuration**: [config-rs](https://docs.rs/config/latest/config/) + environment variables
 
 ### Frontend
 
@@ -27,320 +26,114 @@
 - **UI Components**: [shadcn-svelte](https://www.shadcn-svelte.com/)
 - **Styling**: TailwindCSS (included with shadcn-svelte)
 - **Icons**: [Lucide Icons](https://lucide.dev/)
-- **State Management**: Svelte stores + server-side load functions
 
 ### Infrastructure
 
 - **Database**: SQLite (single file, zero configuration)
-- **Container Runtime**: containerd (lebih ringan dari Docker daemon)
-- **Reverse Proxy**: Caddy/Traefik (optional, untuk production)
+- **Container Runtime**: Docker/containerd
+- **Reverse Proxy**: Caddy (optional, untuk production)
 
 ---
 
 ## 📋 Features Roadmap
 
-### Phase 1: Foundation (MVP)
+### Phase 1: Foundation (MVP) ✅
 
-- [ ] **Backend Setup**
-  - [ ] Project structure dengan Axum
-  - [ ] SQLite database setup dengan SQLx + migrations
-  - [ ] Configuration management (env vars, config file)
-  - [ ] Basic error handling dan logging
-  - [ ] Health check endpoint
+- [x] **Backend Setup**
+  - [x] Project structure dengan Axum
+  - [x] SQLite database setup dengan SQLx + migrations
+  - [x] Configuration management (env vars)
+  - [x] Basic error handling dan logging
+  - [x] Health check endpoint
 
-- [ ] **Authentication**
-  - [ ] User registration (untuk admin pertama)
-  - [ ] Login dengan JWT
-  - [ ] Middleware authentication
-  - [ ] Session management
+- [x] **Authentication**
+  - [x] User registration
+  - [x] Login dengan JWT
+  - [x] Middleware authentication
+  - [x] Session management
 
-- [ ] **Frontend Setup**
-  - [ ] SvelteKit project initialization
-  - [ ] shadcn-svelte integration
-  - [ ] Base layout dengan sidebar navigation
-  - [ ] Auth pages (login/register)
-  - [ ] Dark/Light mode toggle
+- [x] **Frontend Setup**
+  - [x] SvelteKit project initialization
+  - [x] shadcn-svelte integration
+  - [x] Base layout dengan sidebar navigation
+  - [x] Auth pages (login/register)
+  - [x] Dark/Light mode toggle
 
-### Phase 2: Container Management
+### Phase 2: Container Management ✅
 
-- [ ] **Container Runtime Integration**
-  - [ ] Containerd client connection
-  - [ ] List running containers
-  - [ ] Container logs (streaming)
-  - [ ] Container stats (CPU, memory, network)
+- [x] **Container Runtime Integration**
+  - [x] Docker API client connection (bollard)
+  - [x] List running containers
+  - [x] Container logs (streaming via SSE)
+  - [x] Container stats (CPU, memory, network)
 
-- [ ] **Image Management**
-  - [ ] Pull image dari registry (Docker Hub, private registry)
-  - [ ] List local images
-  - [ ] Delete image
-  - [ ] Image details (layers, size, created date)
+- [x] **Image Management**
+  - [x] Pull image dari registry
+  - [x] List local images
+  - [x] Delete image
+  - [x] Image details (size, created date)
 
-- [ ] **Container Lifecycle**
-  - [ ] Create container dari image
-  - [ ] Start/Stop/Restart container
-  - [ ] Delete container
-  - [ ] Environment variables configuration
-  - [ ] Port mapping
-  - [ ] Volume mounts
+- [x] **Container Lifecycle**
+  - [x] Create container dari image
+  - [x] Start/Stop/Restart container
+  - [x] Delete container
+  - [x] Environment variables configuration
 
-### Phase 3: Application Deployment
+### Phase 3: Application Deployment ✅
 
-- [ ] **Projects/Apps**
-  - [ ] Create project/application
-  - [ ] Link project ke container
-  - [ ] Project settings (env vars, domains)
-  - [ ] Deployment history
+- [x] **Projects/Apps**
+  - [x] Create project/application
+  - [x] Link project ke container
+  - [x] Project settings (env vars, port)
+  - [x] Deploy/Stop/Restart endpoints
 
-- [ ] **Build from Source (Optional)**
-  - [ ] Git repository integration
-  - [ ] Dockerfile-based build dengan buildkit
-  - [ ] Build logs streaming
-  - [ ] Auto-deploy on push (webhook)
+- [x] **Networking**
+  - [x] Caddy integration for routing
 
-- [ ] **Networking**
-  - [ ] Custom domains per project
-  - [ ] SSL/TLS certificates (via Caddy/Let's Encrypt)
-  - [ ] Internal networking antar containers
+### Phase 4: Dashboard & Monitoring ✅
 
-### Phase 4: Dashboard & Monitoring
+- [x] **Dashboard**
+  - [x] System overview (CPU, memory, disk usage)
+  - [x] Running containers count
+  - [x] Quick actions
 
-- [ ] **Dashboard**
-  - [ ] System overview (CPU, memory, disk usage)
-  - [ ] Running containers count
-  - [ ] Recent deployments
-  - [ ] Quick actions
+- [x] **Monitoring**
+  - [x] Real-time container metrics
+  - [x] Container detail page with stats
 
-- [ ] **Monitoring**
-  - [ ] Real-time container metrics
-  - [ ] Resource usage graphs
-  - [ ] Alerts (container down, high resource usage)
+- [x] **Logs**
+  - [x] Centralized log viewer
+  - [x] Log search dan filter
+  - [x] Log download
+  - [x] Container detail logs
 
-- [ ] **Logs**
-  - [ ] Centralized log viewer
-  - [ ] Log search dan filter
-  - [ ] Log download
+### Phase 5: Polish & Production Ready ✅
 
-### Phase 5: Polish & Production Ready
+- [x] **Security**
+  - [x] CORS configuration
+  - [x] JWT authentication
 
-- [ ] **Security Hardening**
-  - [ ] Rate limiting
-  - [ ] CORS configuration
-  - [ ] Secure headers
-  - [ ] Audit logging
+- [x] **Documentation**
+  - [x] README.md
+  - [x] User guide (in frontend /docs)
+  - [x] Deployment guide (in frontend /docs)
+  - [x] API reference (in frontend /docs)
 
-- [ ] **Documentation**
-  - [ ] API documentation (OpenAPI/Swagger)
-  - [ ] User guide
-  - [ ] Deployment guide
-
-- [ ] **DevOps**
-  - [ ] Docker image untuk Labuh sendiri
-  - [ ] Systemd service file
-  - [ ] Backup & restore scripts
+- [x] **DevOps**
+  - [x] Docker Compose setup
+  - [x] Dockerfiles (backend + frontend)
+  - [x] Systemd service file
+  - [x] Installation script
+  - [x] Backup & restore scripts
 
 ---
 
-## 📁 Project Structure (Planned)
-
-```
-labuh/
-├── backend/                    # Rust backend
-│   ├── src/
-│   │   ├── main.rs
-│   │   ├── config.rs          # Configuration
-│   │   ├── db/                # Database layer
-│   │   │   ├── mod.rs
-│   │   │   └── migrations/
-│   │   ├── handlers/          # HTTP handlers
-│   │   │   ├── mod.rs
-│   │   │   ├── auth.rs
-│   │   │   ├── containers.rs
-│   │   │   ├── images.rs
-│   │   │   └── projects.rs
-│   │   ├── models/            # Data models
-│   │   ├── services/          # Business logic
-│   │   │   ├── mod.rs
-│   │   │   ├── containerd.rs  # Containerd client
-│   │   │   └── auth.rs
-│   │   └── middleware/        # Auth, logging, etc
-│   ├── Cargo.toml
-│   └── .env.example
-│
-├── frontend/                   # SvelteKit frontend
-│   ├── src/
-│   │   ├── routes/
-│   │   │   ├── +layout.svelte
-│   │   │   ├── +page.svelte   # Dashboard
-│   │   │   ├── login/
-│   │   │   ├── containers/
-│   │   │   ├── images/
-│   │   │   └── projects/
-│   │   ├── lib/
-│   │   │   ├── components/    # UI components
-│   │   │   ├── api/           # API client
-│   │   │   └── stores/        # Svelte stores
-│   │   └── app.css
-│   ├── package.json
-│   └── svelte.config.js
-│
-├── migrations/                 # SQLite migrations
-├── docker-compose.yml         # Development setup
-├── Dockerfile                 # Production build
-└── README.md
-```
-
----
-
-## 🗄️ Database Schema (Draft)
-
-```sql
--- Users
-CREATE TABLE users (
-    id TEXT PRIMARY KEY,
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    name TEXT,
-    role TEXT DEFAULT 'user',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- Projects/Applications
-CREATE TABLE projects (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    slug TEXT UNIQUE NOT NULL,
-    description TEXT,
-    container_id TEXT,
-    image TEXT,
-    status TEXT DEFAULT 'stopped',
-    port INTEGER,
-    env_vars TEXT,  -- JSON
-    domains TEXT,   -- JSON array
-    user_id TEXT REFERENCES users(id),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- Deployments history
-CREATE TABLE deployments (
-    id TEXT PRIMARY KEY,
-    project_id TEXT REFERENCES projects(id),
-    image TEXT NOT NULL,
-    status TEXT DEFAULT 'pending',
-    logs TEXT,
-    started_at DATETIME,
-    finished_at DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- Activity/Audit logs
-CREATE TABLE activity_logs (
-    id TEXT PRIMARY KEY,
-    user_id TEXT REFERENCES users(id),
-    action TEXT NOT NULL,
-    resource_type TEXT,
-    resource_id TEXT,
-    details TEXT,  -- JSON
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-```
-
----
-
-## 🔌 API Endpoints (Draft)
-
-### Authentication
-
-```
-POST   /api/auth/register     # Register new user
-POST   /api/auth/login        # Login, returns JWT
-POST   /api/auth/logout       # Logout
-GET    /api/auth/me           # Get current user
-```
-
-### Containers
-
-```
-GET    /api/containers        # List containers
-GET    /api/containers/:id    # Get container details
-POST   /api/containers        # Create container
-POST   /api/containers/:id/start   # Start container
-POST   /api/containers/:id/stop    # Stop container
-POST   /api/containers/:id/restart # Restart container
-DELETE /api/containers/:id    # Delete container
-GET    /api/containers/:id/logs    # Get container logs (SSE)
-GET    /api/containers/:id/stats   # Get container stats (SSE)
-```
-
-### Images
-
-```
-GET    /api/images            # List images
-POST   /api/images/pull       # Pull image from registry
-DELETE /api/images/:id        # Delete image
-GET    /api/images/:id        # Get image details
-```
-
-### Projects
-
-```
-GET    /api/projects          # List projects
-POST   /api/projects          # Create project
-GET    /api/projects/:id      # Get project details
-PUT    /api/projects/:id      # Update project
-DELETE /api/projects/:id      # Delete project
-POST   /api/projects/:id/deploy    # Deploy project
-GET    /api/projects/:id/deployments # List deployments
-```
-
-### System
-
-```
-GET    /api/health            # Health check
-GET    /api/system/stats      # System stats (CPU, memory, disk)
-```
-
----
-
-## 📝 Notes & Considerations
-
-### Why Containerd over Docker?
-
-- Lebih ringan karena tidak perlu Docker daemon
-- Langsung interact dengan container runtime
-- Cocok untuk embedded/lightweight systems
-- Docker sendiri menggunakan containerd di belakang layar
-
-### Why SQLite?
-
-- Zero configuration, single file database
-- Tidak perlu database server terpisah
-- Cukup untuk single-server deployment
-- Mudah untuk backup (cukup copy file)
-- WAL mode untuk better concurrency
-
-### Why Axum?
-
-- Built on top of Tokio (battle-tested async runtime)
-- Type-safe routing dan extractors
-- Great ergonomics dengan tower middleware ecosystem
-- Excellent performance
-
-### Containerd Access
-
-- Perlu akses ke containerd socket (`/run/containerd/containerd.sock`)
-- Backend harus running sebagai user dengan permission ke socket
-- Atau: setup user namespace remapping
-
----
-
-## 🚀 Getting Started (TODO)
+## 🚀 Getting Started
 
 ```bash
 # Development
-cd backend && cargo run
-cd frontend && npm run dev
+cargo run             # Backend
+cd frontend && npm run dev  # Frontend
 
 # Production
 docker-compose up -d
@@ -348,10 +141,33 @@ docker-compose up -d
 
 ---
 
-## 📚 References
+## 📚 Documentation
 
-- [containerd-rs docs](https://docs.rs/containerd/latest/containerd/)
-- [Axum examples](https://github.com/tokio-rs/axum/tree/main/examples)
-- [SvelteKit docs](https://kit.svelte.dev/docs)
-- [shadcn-svelte docs](https://www.shadcn-svelte.com/docs)
-- [SQLx docs](https://github.com/launchbadge/sqlx)
+Visit `/docs` in the frontend for:
+
+- User Guide
+- Deployment Guide
+- API Reference
+
+---
+
+## 📝 Notes
+
+### Why Docker API (bollard) instead of direct containerd?
+
+- Bollard provides stable, well-documented API
+- Works with both Docker and containerd (via Docker shim)
+- For containerd-only: use `nerdctl` with Docker API compatibility
+- Easier deployment and broader compatibility
+
+### Why SQLite?
+
+- Zero configuration, single file database
+- Tidak perlu database server terpisah
+- Mudah untuk backup (cukup copy file)
+
+### Why Axum?
+
+- Built on top of Tokio (battle-tested async runtime)
+- Type-safe routing dan extractors
+- Excellent performance

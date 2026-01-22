@@ -13,7 +13,7 @@
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/labuh.git
+git clone https://github.com/HasanH47/labuh.git
 cd labuh
 
 # Configure environment
@@ -47,7 +47,7 @@ docker-compose ps
 
 ```bash
 # Clone and build
-git clone https://github.com/yourusername/labuh.git
+git clone https://github.com/HasanH47/labuh.git
 cd labuh
 cargo build --release
 

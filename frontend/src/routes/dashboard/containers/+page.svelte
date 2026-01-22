@@ -115,11 +115,11 @@
 					<Card.Content class="flex items-center justify-between p-4">
 						<div class="flex items-center gap-4">
 							<ContainerIcon class="h-8 w-8 text-muted-foreground" />
-							<div>
+							<a href="/dashboard/containers/{container.id}" class="hover:underline">
 								<p class="font-medium">{container.names[0]?.replace(/^\//, '') || container.id.slice(0, 12)}</p>
 								<p class="text-sm text-muted-foreground">{container.image}</p>
 								<p class="text-xs {getStatusColor(container.state)} capitalize">{container.state} - {container.status}</p>
-							</div>
+							</a>
 						</div>
 						<div class="flex items-center gap-2">
 							{#if container.state !== 'running'}
