@@ -1,6 +1,6 @@
 #!/bin/bash
 # Labuh - Quick Install Script
-# Usage: curl -fsSL https://raw.githubusercontent.com/yourusername/labuh/main/deploy/quick-install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/HasanH47/labuh/main/deploy/quick-install.sh | bash
 #
 # Or with options:
 # curl -fsSL ... | bash -s -- --runtime docker
@@ -20,7 +20,7 @@ RUNTIME=""
 LABUH_VERSION="latest"
 INSTALL_DIR="/opt/labuh"
 LABUH_USER="labuh"
-GITHUB_REPO="yourusername/labuh"
+GITHUB_REPO="HasanH47/labuh"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
