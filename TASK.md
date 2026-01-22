@@ -10,121 +10,185 @@
 
 ---
 
-## 🛠️ Tech Stack
+## ✅ Completed Features
 
-### Backend
+### Phase 1-5: Foundation to Production Ready
 
-- **Language**: Rust (untuk performa dan memory efficiency)
-- **Container Runtime**: Docker API via bollard (works with containerd via Docker shim)
-- **HTTP Framework**: [Axum](https://docs.rs/axum/latest/axum/) (async, performant, ergonomic)
-- **Database**: SQLite via [SQLx](https://docs.rs/sqlx/latest/sqlx/) (async, compile-time checked queries)
-- **Authentication**: JWT via [jsonwebtoken](https://docs.rs/jsonwebtoken/latest/jsonwebtoken/)
-
-### Frontend
-
-- **Framework**: [SvelteKit](https://kit.svelte.dev/)
-- **UI Components**: [shadcn-svelte](https://www.shadcn-svelte.com/)
-- **Styling**: TailwindCSS (included with shadcn-svelte)
-- **Icons**: [Lucide Icons](https://lucide.dev/)
-
-### Infrastructure
-
-- **Database**: SQLite (single file, zero configuration)
-- **Container Runtime**: Docker/containerd
-- **Reverse Proxy**: Caddy (optional, untuk production)
+- [x] Backend (Axum, SQLx, JWT Auth, Docker API via bollard)
+- [x] Frontend (SvelteKit, shadcn-svelte, dark mode)
+- [x] Container Management (CRUD, logs, stats, SSE streaming)
+- [x] Image Management (list, pull, delete)
+- [x] Projects (CRUD, deploy, stop, restart)
+- [x] Dashboard (system stats, monitoring)
+- [x] Documentation (user guide, deployment, API reference)
+- [x] DevOps (Docker Compose, systemd, backup/restore)
 
 ---
 
-## 📋 Features Roadmap
+## 🚀 Next Features (Roadmap)
 
-### Phase 1: Foundation (MVP) ✅
+### Phase 6: Environment & Configuration
 
-- [x] **Backend Setup**
-  - [x] Project structure dengan Axum
-  - [x] SQLite database setup dengan SQLx + migrations
-  - [x] Configuration management (env vars)
-  - [x] Basic error handling dan logging
-  - [x] Health check endpoint
+- [ ] **Environment Variable Management**
+  - [ ] Per-container env vars editor
+  - [ ] Per-project env vars (inherited by containers)
+  - [ ] Secret masking in UI
+  - [ ] Import from .env file
 
-- [x] **Authentication**
-  - [x] User registration
-  - [x] Login dengan JWT
-  - [x] Middleware authentication
-  - [x] Session management
+- [ ] **Port Management**
+  - [ ] Expose ports per container
+  - [ ] Port mapping UI (host:container)
+  - [ ] Auto-detect exposed ports from image
 
-- [x] **Frontend Setup**
-  - [x] SvelteKit project initialization
-  - [x] shadcn-svelte integration
-  - [x] Base layout dengan sidebar navigation
-  - [x] Auth pages (login/register)
-  - [x] Dark/Light mode toggle
+### Phase 7: Docker Compose Support
 
-### Phase 2: Container Management ✅
+- [ ] **Docker Compose Import**
+  - [ ] Paste docker-compose.yml to create stack
+  - [ ] Parse and create multiple containers
+  - [ ] Handle networks (create shared network)
+  - [ ] Handle volumes
+  - [ ] Stack management (start/stop all)
 
-- [x] **Container Runtime Integration**
-  - [x] Docker API client connection (bollard)
-  - [x] List running containers
-  - [x] Container logs (streaming via SSE)
-  - [x] Container stats (CPU, memory, network)
+- [ ] **Stack View**
+  - [ ] Group containers by stack/compose file
+  - [ ] Stack-level logs viewer
+  - [ ] Stack health overview
 
-- [x] **Image Management**
-  - [x] Pull image dari registry
-  - [x] List local images
-  - [x] Delete image
-  - [x] Image details (size, created date)
+### Phase 8: Domain & Routing (Caddy)
 
-- [x] **Container Lifecycle**
-  - [x] Create container dari image
-  - [x] Start/Stop/Restart container
-  - [x] Delete container
-  - [x] Environment variables configuration
+- [ ] **Domain Management**
+  - [ ] Add custom domains per project
+  - [ ] Subdomain auto-generation (app-name.labuh.local)
+  - [ ] DNS verification
+  - [ ] SSL auto-provisioning (Let's Encrypt)
 
-### Phase 3: Application Deployment ✅
+- [ ] **Caddy Integration**
+  - [ ] Auto-create Caddy container (port 80, 443)
+  - [ ] Dynamic route updates via Caddy API
+  - [ ] Handle Docker networks (connect Caddy to container networks)
+  - [ ] Reverse proxy configuration UI
+  - [ ] Basic Auth protection per route
 
-- [x] **Projects/Apps**
-  - [x] Create project/application
-  - [x] Link project ke container
-  - [x] Project settings (env vars, port)
-  - [x] Deploy/Stop/Restart endpoints
+- [ ] **Networking**
+  - [ ] Create labuh-network for all containers
+  - [ ] Connect Caddy to all project networks
+  - [ ] Internal DNS resolution (container-name.labuh)
 
-- [x] **Networking**
-  - [x] Caddy integration for routing
+### Phase 9: Private Registry & Auth
 
-### Phase 4: Dashboard & Monitoring ✅
+- [ ] **Registry Credentials**
+  - [ ] Store Docker Hub credentials
+  - [ ] Store GitHub Container Registry (ghcr.io) tokens
+  - [ ] Store custom registry credentials
+  - [ ] Credential management UI
+  - [ ] Per-project registry config
 
-- [x] **Dashboard**
-  - [x] System overview (CPU, memory, disk usage)
-  - [x] Running containers count
-  - [x] Quick actions
+- [ ] **Authenticated Pull**
+  - [ ] Use stored credentials when pulling
+  - [ ] Support for private images
 
-- [x] **Monitoring**
-  - [x] Real-time container metrics
-  - [x] Container detail page with stats
+### Phase 10: Webhooks & CI/CD
 
-- [x] **Logs**
-  - [x] Centralized log viewer
-  - [x] Log search dan filter
-  - [x] Log download
-  - [x] Container detail logs
+- [ ] **Webhook Endpoints**
+  - [ ] `/api/webhooks/deploy/:project-slug`
+  - [ ] Token-based authentication
+  - [ ] Trigger: pull latest image & restart container
+  - [ ] Webhook logs/history
 
-### Phase 5: Polish & Production Ready ✅
+- [ ] **GitHub Integration**
+  - [ ] GitHub webhook receiver
+  - [ ] Trigger on push to branch
+  - [ ] Auto-deploy on tag/release
 
-- [x] **Security**
-  - [x] CORS configuration
-  - [x] JWT authentication
+- [ ] **Deployment Automation**
+  - [ ] Scheduled pulls (cron-like)
+  - [ ] Health check after deploy
+  - [ ] Rollback on failure
+  - [ ] Deployment notifications (Discord/Slack/Email)
 
-- [x] **Documentation**
-  - [x] README.md
-  - [x] User guide (in frontend /docs)
-  - [x] Deployment guide (in frontend /docs)
-  - [x] API reference (in frontend /docs)
+### Phase 11: Resource Management
 
-- [x] **DevOps**
-  - [x] Docker Compose setup
-  - [x] Dockerfiles (backend + frontend)
-  - [x] Systemd service file
-  - [x] Installation script
-  - [x] Backup & restore scripts
+- [ ] **Resource Limits**
+  - [ ] CPU limit per container
+  - [ ] Memory limit per container
+  - [ ] Storage quota per project
+
+- [ ] **Resource Monitoring**
+  - [ ] Historical metrics (store in SQLite)
+  - [ ] Resource usage graphs (24h, 7d, 30d)
+  - [ ] Alerts for high usage
+
+### Phase 12: Multi-User & Teams
+
+- [ ] **User Roles**
+  - [ ] Admin (full access)
+  - [ ] Developer (projects, containers)
+  - [ ] Viewer (read-only)
+
+- [ ] **Teams**
+  - [ ] Create team/organization
+  - [ ] Invite users to team
+  - [ ] Project ownership transfer
+
+### Phase 13: Advanced Features
+
+- [ ] **Templates**
+  - [ ] Pre-built app templates (WordPress, Ghost, etc)
+  - [ ] One-click deploy from template
+  - [ ] Community templates
+
+- [ ] **Backup & Restore**
+  - [ ] Container data backup
+  - [ ] Volume backup
+  - [ ] Scheduled backups
+
+- [ ] **Git Integration**
+  - [ ] Clone repo and build with Dockerfile
+  - [ ] Build logs streaming
+  - [ ] Auto-rebuild on push
+
+---
+
+## 📝 Implementation Notes
+
+### Caddy Container Setup
+
+```yaml
+# When Labuh starts, ensure Caddy container exists:
+labuh-caddy:
+  image: caddy:2-alpine
+  ports:
+    - "80:80"
+    - "443:443"
+  networks:
+    - labuh-network
+  volumes:
+    - caddy_data:/data
+    - caddy_config:/config
+```
+
+### Docker Compose Parsing
+
+- Use `serde_yaml` to parse compose file
+- Create containers via bollard API
+- Create networks and connect containers
+- Store compose file in SQLite for stack management
+
+### Webhook Flow
+
+```
+GitHub Push → Webhook → Labuh API → Pull Latest Image → Restart Container → Notify
+```
+
+---
+
+## 🛠️ Tech Stack
+
+- **Backend**: Rust, Axum, SQLx, bollard
+- **Frontend**: SvelteKit, shadcn-svelte, TailwindCSS
+- **Database**: SQLite
+- **Reverse Proxy**: Caddy
+- **Container Runtime**: Docker / containerd
 
 ---
 
@@ -138,36 +202,3 @@ cd frontend && npm run dev  # Frontend
 # Production
 docker-compose up -d
 ```
-
----
-
-## 📚 Documentation
-
-Visit `/docs` in the frontend for:
-
-- User Guide
-- Deployment Guide
-- API Reference
-
----
-
-## 📝 Notes
-
-### Why Docker API (bollard) instead of direct containerd?
-
-- Bollard provides stable, well-documented API
-- Works with both Docker and containerd (via Docker shim)
-- For containerd-only: use `nerdctl` with Docker API compatibility
-- Easier deployment and broader compatibility
-
-### Why SQLite?
-
-- Zero configuration, single file database
-- Tidak perlu database server terpisah
-- Mudah untuk backup (cukup copy file)
-
-### Why Axum?
-
-- Built on top of Tokio (battle-tested async runtime)
-- Type-safe routing dan extractors
-- Excellent performance
