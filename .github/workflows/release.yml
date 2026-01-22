@@ -133,12 +133,13 @@ jobs:
       - name: Package
         run: |
           cd frontend
-          # Find the build output
+          # SvelteKit outputs to .svelte-kit/output or build depending on adapter
           if [ -d "build" ]; then
             tar -czvf ../labuh-frontend.tar.gz build package.json
+          elif [ -d ".svelte-kit/output" ]; then
+            tar -czvf ../labuh-frontend.tar.gz .svelte-kit/output package.json
           else
-            # Package source for node adapter
-            tar -czvf ../labuh-frontend.tar.gz .svelte-kit package.json svelte.config.js vite.config.ts src static --exclude=node_modules 2>/dev/null || \
+            # Fallback: package the whole dist
             tar -czvf ../labuh-frontend.tar.gz . --exclude=node_modules
           fi
 
