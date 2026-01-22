@@ -1,0 +1,346 @@
+#!/bin/bash
+# Labuh - Quick Install Script
+# Usage: curl -fsSL https://raw.githubusercontent.com/yourusername/labuh/main/deploy/quick-install.sh | bash
+#
+# Or with options:
+# curl -fsSL ... | bash -s -- --runtime docker
+# curl -fsSL ... | bash -s -- --runtime containerd
+
+set -e
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Defaults
+RUNTIME=""
+LABUH_VERSION="latest"
+INSTALL_DIR="/opt/labuh"
+LABUH_USER="labuh"
+GITHUB_REPO="yourusername/labuh"
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --runtime)
+            RUNTIME="$2"
+            shift 2
+            ;;
+        --version)
+            LABUH_VERSION="$2"
+            shift 2
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $1${NC}"
+            exit 1
+            ;;
+    esac
+done
+
+echo -e "${BLUE}"
+echo "  _          _           _     "
+echo " | |    __ _| |__  _   _| |__  "
+echo " | |   / _\` | '_ \| | | | '_ \ "
+echo " | |__| (_| | |_) | |_| | | | |"
+echo " |_____\__,_|_.__/ \__,_|_| |_|"
+echo -e "${NC}"
+echo "Lightweight PaaS Platform Installer"
+echo "===================================="
+echo ""
+
+# Check if running as root
+if [[ $EUID -ne 0 ]]; then
+   echo -e "${RED}Error: This script must be run as root (use sudo)${NC}"
+   exit 1
+fi
+
+# Detect OS
+detect_os() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        OS=$ID
+        OS_VERSION=$VERSION_ID
+    elif [ -f /etc/redhat-release ]; then
+        OS="rhel"
+    else
+        OS=$(uname -s)
+    fi
+
+    echo -e "${GREEN}✓ Detected OS: $OS $OS_VERSION${NC}"
+}
+
+# Detect architecture
+detect_arch() {
+    ARCH=$(uname -m)
+    case $ARCH in
+        x86_64)
+            ARCH="x86_64"
+            ;;
+        aarch64|arm64)
+            ARCH="aarch64"
+            ;;
+        *)
+            echo -e "${RED}Error: Unsupported architecture: $ARCH${NC}"
+            exit 1
+            ;;
+    esac
+    echo -e "${GREEN}✓ Architecture: $ARCH${NC}"
+}
+
+# Check if Docker is installed
+check_docker() {
+    if command -v docker &> /dev/null; then
+        DOCKER_VERSION=$(docker --version)
+        echo -e "${GREEN}✓ Docker found: $DOCKER_VERSION${NC}"
+        return 0
+    fi
+    return 1
+}
+
+# Check if containerd is installed
+check_containerd() {
+    if command -v containerd &> /dev/null || [ -S /run/containerd/containerd.sock ]; then
+        echo -e "${GREEN}✓ containerd found${NC}"
+        return 0
+    fi
+    return 1
+}
+
+# Install Docker
+install_docker() {
+    echo -e "${YELLOW}Installing Docker...${NC}"
+
+    case $OS in
+        ubuntu|debian)
+            apt-get update
+            apt-get install -y ca-certificates curl gnupg
+            install -m 0755 -d /etc/apt/keyrings
+            curl -fsSL https://download.docker.com/linux/$OS/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+            chmod a+r /etc/apt/keyrings/docker.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$OS $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+            apt-get update
+            apt-get install -y docker-ce docker-ce-cli containerd.io
+            ;;
+        fedora|rhel|centos)
+            dnf -y install dnf-plugins-core
+            dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+            dnf install -y docker-ce docker-ce-cli containerd.io
+            ;;
+        *)
+            echo -e "${RED}Unsupported OS for Docker auto-install. Please install Docker manually.${NC}"
+            exit 1
+            ;;
+    esac
+
+    systemctl enable docker
+    systemctl start docker
+    echo -e "${GREEN}✓ Docker installed and started${NC}"
+}
+
+# Install containerd only
+install_containerd() {
+    echo -e "${YELLOW}Installing containerd...${NC}"
+
+    case $OS in
+        ubuntu|debian)
+            apt-get update
+            apt-get install -y containerd
+            ;;
+        fedora|rhel|centos)
+            dnf install -y containerd
+            ;;
+        *)
+            echo -e "${RED}Unsupported OS for containerd auto-install. Please install manually.${NC}"
+            exit 1
+            ;;
+    esac
+
+    # Install nerdctl for Docker-compatible CLI
+    echo -e "${YELLOW}Installing nerdctl (Docker-compatible CLI for containerd)...${NC}"
+    NERDCTL_VERSION="1.7.0"
+    curl -fsSL "https://github.com/containerd/nerdctl/releases/download/v${NERDCTL_VERSION}/nerdctl-${NERDCTL_VERSION}-linux-${ARCH}.tar.gz" -o /tmp/nerdctl.tar.gz
+    tar -xzf /tmp/nerdctl.tar.gz -C /usr/local/bin
+    rm /tmp/nerdctl.tar.gz
+
+    systemctl enable containerd
+    systemctl start containerd
+    echo -e "${GREEN}✓ containerd and nerdctl installed${NC}"
+}
+
+# Prompt for runtime selection
+select_runtime() {
+    if [[ -n "$RUNTIME" ]]; then
+        return
+    fi
+
+    echo ""
+    echo "Select container runtime:"
+    echo "  1) Docker (recommended, easiest setup)"
+    echo "  2) containerd (lightweight, minimal overhead)"
+    echo ""
+    read -p "Enter choice [1-2]: " choice
+
+    case $choice in
+        1) RUNTIME="docker" ;;
+        2) RUNTIME="containerd" ;;
+        *)
+            echo -e "${RED}Invalid choice${NC}"
+            exit 1
+            ;;
+    esac
+}
+
+# Download and install Labuh binary
+install_labuh() {
+    echo -e "${YELLOW}Downloading Labuh ${LABUH_VERSION}...${NC}"
+
+    # Create install directory
+    mkdir -p "$INSTALL_DIR"
+
+    # Download binary
+    if [[ "$LABUH_VERSION" == "latest" ]]; then
+        DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/latest/download/labuh-linux-${ARCH}.tar.gz"
+    else
+        DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${LABUH_VERSION}/labuh-linux-${ARCH}.tar.gz"
+    fi
+
+    curl -fsSL "$DOWNLOAD_URL" -o /tmp/labuh.tar.gz
+    tar -xzf /tmp/labuh.tar.gz -C "$INSTALL_DIR"
+    rm /tmp/labuh.tar.gz
+
+    chmod +x "$INSTALL_DIR/labuh"
+
+    echo -e "${GREEN}✓ Labuh installed to $INSTALL_DIR${NC}"
+}
+
+# Create systemd service
+setup_systemd() {
+    echo -e "${YELLOW}Setting up systemd service...${NC}"
+
+    # Create user if not exists
+    if ! id "$LABUH_USER" &>/dev/null; then
+        useradd --system --no-create-home --shell /usr/sbin/nologin "$LABUH_USER"
+    fi
+
+    # Add user to docker group
+    if [[ "$RUNTIME" == "docker" ]]; then
+        usermod -aG docker "$LABUH_USER"
+    fi
+
+    # Create .env file
+    if [[ ! -f "$INSTALL_DIR/.env" ]]; then
+        JWT_SECRET=$(openssl rand -base64 32)
+        cat > "$INSTALL_DIR/.env" << EOF
+HOST=0.0.0.0
+PORT=3000
+DATABASE_URL=sqlite:$INSTALL_DIR/labuh.db?mode=rwc
+JWT_SECRET=$JWT_SECRET
+JWT_EXPIRATION_HOURS=24
+CADDY_ADMIN_API=http://localhost:2019
+BASE_DOMAIN=localhost
+RUST_LOG=info
+EOF
+        chown "$LABUH_USER:$LABUH_USER" "$INSTALL_DIR/.env"
+        chmod 600 "$INSTALL_DIR/.env"
+    fi
+
+    # Create systemd service file
+    cat > /etc/systemd/system/labuh.service << EOF
+[Unit]
+Description=Labuh PaaS Platform
+After=network.target docker.service containerd.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=$LABUH_USER
+Group=$LABUH_USER
+WorkingDirectory=$INSTALL_DIR
+EnvironmentFile=$INSTALL_DIR/.env
+ExecStart=$INSTALL_DIR/labuh
+Restart=always
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=$INSTALL_DIR
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Set ownership
+    chown -R "$LABUH_USER:$LABUH_USER" "$INSTALL_DIR"
+
+    # Reload and enable service
+    systemctl daemon-reload
+    systemctl enable labuh
+
+    echo -e "${GREEN}✓ Systemd service configured${NC}"
+}
+
+# Main installation flow
+main() {
+    detect_os
+    detect_arch
+
+    echo ""
+    echo "Checking container runtime..."
+
+    # Check existing installations
+    HAS_DOCKER=false
+    HAS_CONTAINERD=false
+
+    if check_docker; then
+        HAS_DOCKER=true
+    fi
+
+    if check_containerd; then
+        HAS_CONTAINERD=true
+    fi
+
+    # If no runtime, install one
+    if [[ "$HAS_DOCKER" == false && "$HAS_CONTAINERD" == false ]]; then
+        select_runtime
+
+        if [[ "$RUNTIME" == "docker" ]]; then
+            install_docker
+        else
+            install_containerd
+        fi
+    else
+        if [[ "$HAS_DOCKER" == true ]]; then
+            RUNTIME="docker"
+        else
+            RUNTIME="containerd"
+        fi
+        echo -e "${GREEN}Using existing $RUNTIME installation${NC}"
+    fi
+
+    # Install Labuh
+    install_labuh
+
+    # Setup systemd
+    setup_systemd
+
+    echo ""
+    echo -e "${GREEN}================================${NC}"
+    echo -e "${GREEN}✓ Labuh installation complete!${NC}"
+    echo -e "${GREEN}================================${NC}"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Edit configuration: sudo nano $INSTALL_DIR/.env"
+    echo "  2. Start Labuh: sudo systemctl start labuh"
+    echo "  3. Check status: sudo systemctl status labuh"
+    echo "  4. View logs: sudo journalctl -u labuh -f"
+    echo ""
+    echo "Dashboard will be available at: http://localhost:3000"
+    echo ""
+}
+
+main

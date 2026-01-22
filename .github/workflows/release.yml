@@ -1,0 +1,160 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v0.1.0)'
+        required: true
+        default: 'v0.1.0'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-backend:
+    name: Build Backend - ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: linux-x86_64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: linux-aarch64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross-compilation tools
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Build
+        run: |
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+          fi
+          cargo build --release --target ${{ matrix.target }}
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/labuh dist/
+          cp -r migrations dist/
+          cp .env.example dist/
+          cp -r deploy dist/
+          cd dist && tar -czvf ../labuh-${{ matrix.name }}.tar.gz *
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: labuh-${{ matrix.name }}
+          path: labuh-${{ matrix.name }}.tar.gz
+
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+        env:
+          PUBLIC_API_URL: ''
+
+      - name: Package
+        run: |
+          cd frontend
+          tar -czvf ../labuh-frontend.tar.gz build package.json
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: labuh-frontend
+          path: labuh-frontend.tar.gz
+
+  release:
+    name: Create Release
+    needs: [build-backend, build-frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Labuh ${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
+          files: |
+            labuh-linux-x86_64/labuh-linux-x86_64.tar.gz
+            labuh-linux-aarch64/labuh-linux-aarch64.tar.gz
+            labuh-frontend/labuh-frontend.tar.gz
+          body: |
+            ## Labuh ${{ steps.version.outputs.version }}
+
+            Lightweight PaaS Platform for container deployment.
+
+            ### Quick Install
+
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/deploy/quick-install.sh | sudo bash
+            ```
+
+            ### Manual Install
+
+            1. Download the appropriate binary for your architecture
+            2. Extract: `tar -xzf labuh-linux-*.tar.gz -C /opt/labuh`
+            3. Run: `./deploy/install.sh`
+
+            ### Downloads
+
+            - `labuh-linux-x86_64.tar.gz` - Linux x86_64 (most servers)
+            - `labuh-linux-aarch64.tar.gz` - Linux ARM64 (Raspberry Pi, ARM servers)
+            - `labuh-frontend.tar.gz` - Frontend build (SvelteKit)
+
+            ### Changelog
+
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
