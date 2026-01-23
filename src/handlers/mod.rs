@@ -8,6 +8,7 @@ pub mod projects;
 pub mod registries;
 pub mod stacks;
 pub mod system;
+pub mod webhooks;
 
 pub use auth::auth_routes;
 pub use containers::container_routes;

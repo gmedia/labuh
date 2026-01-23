@@ -13,6 +13,7 @@ pub struct Project {
     pub port: Option<i64>,
     pub env_vars: Option<String>, // JSON
     pub domains: Option<String>,  // JSON array
+    pub webhook_token: Option<String>,
     pub user_id: String,
     pub created_at: String,
     pub updated_at: String,
@@ -50,6 +51,7 @@ pub struct ProjectResponse {
     pub port: Option<i64>,
     pub env_vars: Option<serde_json::Value>,
     pub domains: Option<Vec<String>>,
+    pub webhook_token: Option<String>,
     pub user_id: String,
     pub created_at: String,
     pub updated_at: String,
@@ -68,6 +70,7 @@ impl From<Project> for ProjectResponse {
             port: p.port,
             env_vars: p.env_vars.and_then(|s| serde_json::from_str(&s).ok()),
             domains: p.domains.and_then(|s| serde_json::from_str(&s).ok()),
+            webhook_token: p.webhook_token,
             user_id: p.user_id,
             created_at: p.created_at,
             updated_at: p.updated_at,

@@ -98,6 +98,9 @@ async fn main() -> anyhow::Result<()> {
         .nest("/projects", domain_routes(domain_service))
         .nest("/registries", registry_routes(registry_service));
 
+    // Webhook routes (initially empty, populated if container service is available)
+    let mut webhook_routes = Router::new();
+
     // Add container, stack, and deploy routes if container runtime is available
     if let Some(ref container_svc) = container_service {
         // Create stack service
@@ -117,6 +120,16 @@ async fn main() -> anyhow::Result<()> {
             .nest("/images", image_routes(container_svc.clone()))
             .nest("/stacks", stack_routes(stack_service))
             .nest("/projects", deploy_routes(deploy_service));
+
+        // Create webhook state and routes
+        let webhook_state = handlers::webhooks::WebhookState {
+            project_service: project_service.clone(),
+            container_service: container_svc.clone(),
+        };
+
+        webhook_routes = webhook_routes
+            .route("/deploy/:project_id/:token", axum::routing::post(handlers::webhooks::trigger_deploy))
+            .with_state(webhook_state);
     }
 
     let protected_routes = protected_routes.layer(axum_middleware::from_fn_with_state(
@@ -129,6 +142,7 @@ async fn main() -> anyhow::Result<()> {
         .nest("/api", health_routes())
         .nest("/api/system", system_routes())
         .nest("/api/auth", auth_routes(auth_service.clone()))
+        .nest("/api/webhooks", webhook_routes)
         .nest("/api", protected_routes)
         .layer(TraceLayer::new_for_http())
         .layer(cors);

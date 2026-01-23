@@ -111,6 +111,7 @@ export interface Project {
   env_vars?: Record<string, string>;
   domains?: string[];
   user_id: string;
+  webhook_token?: string;
   created_at: string;
   updated_at: string;
 }
@@ -379,6 +380,12 @@ export const api = {
           },
         );
       },
+    },
+
+    regenerateWebhookToken: async (id: string) => {
+      return fetchApi<Project>(`/projects/${id}/webhook/regenerate`, {
+        method: "POST",
+      });
     },
   },
 

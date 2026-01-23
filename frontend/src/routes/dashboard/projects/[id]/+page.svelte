@@ -218,6 +218,46 @@
 					{/if}
 				</Card.Content>
 			</Card.Root>
+
+			<!-- Webhooks Card -->
+			<Card.Root>
+				<Card.Header>
+					<Card.Title class="flex items-center gap-2">
+						<RotateCcw class="h-5 w-5" />
+						Continuous Deployment
+					</Card.Title>
+					<Card.Description>
+						Trigger deployments automatically via webhook
+					</Card.Description>
+				</Card.Header>
+				<Card.Content class="space-y-4">
+					<div class="space-y-2">
+						<Label>Webhook URL</Label>
+						<div class="flex gap-2">
+							<Input
+								readonly
+								value="{window.location.origin}/api/webhooks/deploy/{project.id}/{project.webhook_token}"
+							/>
+							<Button
+								variant="outline"
+								onclick={async () => {
+									if (!project) return;
+									actionLoading = true;
+									const res = await api.projects.regenerateWebhookToken(project.id);
+									if (res.data) project = res.data;
+									actionLoading = false;
+								}}
+								disabled={actionLoading}
+							>
+								Regenerate
+							</Button>
+						</div>
+						<p class="text-xs text-muted-foreground">
+							POST against this URL to trigger a new deployment (e.g., from GitHub Actions, GitLab CI).
+						</p>
+					</div>
+				</Card.Content>
+			</Card.Root>
 		</div>
 	{:else}
 		<Card.Root>

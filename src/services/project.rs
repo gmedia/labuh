@@ -43,10 +43,20 @@ impl ProjectService {
             .ok_or(AppError::NotFound("Project not found".to_string()))
     }
 
+    fn generate_token() -> String {
+        use rand::{distributions::Alphanumeric, Rng};
+        rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(32)
+            .map(char::from)
+            .collect()
+    }
+
     pub async fn create_project(&self, user_id: &str, input: CreateProject) -> Result<Project> {
         let id = Uuid::new_v4().to_string();
         let slug = slugify(&input.name);
         let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        let webhook_token = Self::generate_token();
 
         // Check if slug already exists
         let existing = sqlx::query_scalar::<_, i64>(
@@ -71,8 +81,8 @@ impl ProjectService {
 
         sqlx::query(
             r#"
-            INSERT INTO projects (id, name, slug, description, image, port, env_vars, domains, user_id, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'stopped', ?, ?)
+            INSERT INTO projects (id, name, slug, description, image, port, env_vars, domains, webhook_token, user_id, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'stopped', ?, ?)
             "#,
         )
         .bind(&id)
@@ -83,6 +93,7 @@ impl ProjectService {
         .bind(input.port)
         .bind(&env_vars)
         .bind(&domains)
+        .bind(webhook_token)
         .bind(user_id)
         .bind(&now)
         .bind(&now)
@@ -167,4 +178,34 @@ impl ProjectService {
 
         Ok(())
     }
-}
+
+    pub async fn regenerate_webhook_token(&self, id: &str, user_id: &str) -> Result<Project> {
+        let _existing = self.get_project(id, user_id).await?;
+        let token = Self::generate_token();
+        let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+
+        sqlx::query("UPDATE projects SET webhook_token = ?, updated_at = ? WHERE id = ?")
+            .bind(&token)
+            .bind(&now)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        self.get_project(id, user_id).await
+    }
+
+    pub async fn validate_webhook_token(&self, id: &str, token: &str) -> Result<Project> {
+        let project = sqlx::query_as::<_, Project>("SELECT * FROM projects WHERE id = ?")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Project not found".to_string()))?;
+
+        if let Some(stored_token) = &project.webhook_token {
+            if stored_token == token {
+                return Ok(project);
+            }
+        }
+
+        Err(AppError::Unauthorized)
+    }

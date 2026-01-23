@@ -90,9 +90,9 @@
 ### Phase 10: Webhooks & CI/CD
 
 - [ ] **Webhook Endpoints**
-  - [ ] `/api/webhooks/deploy/:project-slug`
-  - [ ] Token-based authentication
-  - [ ] Trigger: pull latest image & restart container
+  - [x] `/api/webhooks/deploy/:project-id/:token`
+  - [x] Token-based authentication
+  - [x] Trigger: pull latest image & restart container
   - [ ] Webhook logs/history
 
 - [ ] **GitHub Integration**
