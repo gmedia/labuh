@@ -99,6 +99,7 @@ export interface ImageInspect {
   size: number;
 }
 
+// Deprecated: Project types (kept temporarily if needed, but we are migrating to Stacks)
 export interface Project {
   id: string;
   name: string;
@@ -114,6 +115,16 @@ export interface Project {
   webhook_token?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface DeploymentLog {
+  id: string;
+  stack_id: string;
+  trigger_type: string;
+  status: string;
+  logs?: string;
+  started_at: string;
+  finished_at?: string;
 }
 
 export interface CreateProject {
@@ -143,6 +154,7 @@ export interface Stack {
   user_id: string;
   compose_content?: string;
   status: string;
+  webhook_token?: string;
   container_count: number;
   created_at: string;
   updated_at: string;
@@ -155,7 +167,7 @@ export interface CreateStack {
 
 export interface Domain {
   id: string;
-  project_id: string;
+  stack_id: string;
   domain: string;
   ssl_enabled: boolean;
   verified: boolean;
@@ -303,92 +315,6 @@ export const api = {
     },
   },
 
-  projects: {
-    list: async () => {
-      return fetchApi<Project[]>("/projects");
-    },
-
-    get: async (id: string) => {
-      return fetchApi<Project>(`/projects/${id}`);
-    },
-
-    create: async (data: CreateProject) => {
-      return fetchApi<Project>("/projects", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
-    },
-
-    update: async (id: string, data: Partial<CreateProject>) => {
-      return fetchApi<Project>(`/projects/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      });
-    },
-
-    remove: async (id: string) => {
-      return fetchApi<{ status: string }>(`/projects/${id}`, {
-        method: "DELETE",
-      });
-    },
-
-    deploy: async (id: string) => {
-      return fetchApi<Project>(`/projects/${id}/deploy`, {
-        method: "POST",
-      });
-    },
-
-    stop: async (id: string) => {
-      return fetchApi<Project>(`/projects/${id}/stop`, {
-        method: "POST",
-      });
-    },
-
-    restart: async (id: string) => {
-      return fetchApi<Project>(`/projects/${id}/restart`, {
-        method: "POST",
-      });
-    },
-
-    // Domain management
-    domains: {
-      list: async (projectId: string) => {
-        return fetchApi<Domain[]>(`/projects/${projectId}/domains`);
-      },
-
-      add: async (projectId: string, domain: string) => {
-        return fetchApi<Domain>(`/projects/${projectId}/domains`, {
-          method: "POST",
-          body: JSON.stringify({ domain }),
-        });
-      },
-
-      remove: async (projectId: string, domain: string) => {
-        return fetchApi<{ status: string }>(
-          `/projects/${projectId}/domains/${encodeURIComponent(domain)}`,
-          {
-            method: "DELETE",
-          },
-        );
-      },
-
-      verify: async (projectId: string, domain: string) => {
-        return fetchApi<{ verified: boolean }>(
-          `/projects/${projectId}/domains/${encodeURIComponent(domain)}/verify`,
-          {
-            method: "POST",
-          },
-        );
-      },
-    },
-
-    regenerateWebhookToken: async (id: string) => {
-      return fetchApi<Project>(`/projects/${id}/webhook/regenerate`, {
-        method: "POST",
-      });
-    },
-  },
-
   stacks: {
     list: async () => {
       return fetchApi<Stack[]>("/stacks");
@@ -425,6 +351,47 @@ export const api = {
       return fetchApi<{ status: string }>(`/stacks/${id}`, {
         method: "DELETE",
       });
+    },
+
+    regenerateWebhookToken: async (id: string) => {
+      return fetchApi<{ token: string }>(`/stacks/${id}/webhook/regenerate`, {
+        method: "POST",
+      });
+    },
+
+    deploymentLogs: async (id: string) => {
+      return fetchApi<DeploymentLog[]>(`/stacks/${id}/deployments`);
+    },
+
+    domains: {
+      list: async (stackId: string) => {
+        return fetchApi<Domain[]>(`/stacks/${stackId}/domains`);
+      },
+
+      add: async (stackId: string, domain: string) => {
+        return fetchApi<Domain>(`/stacks/${stackId}/domains`, {
+          method: "POST",
+          body: JSON.stringify({ domain }),
+        });
+      },
+
+      remove: async (stackId: string, domain: string) => {
+        return fetchApi<{ status: string }>(
+          `/stacks/${stackId}/domains/${encodeURIComponent(domain)}`,
+          {
+            method: "DELETE",
+          },
+        );
+      },
+
+      verify: async (stackId: string, domain: string) => {
+        return fetchApi<{ verified: boolean }>(
+          `/stacks/${stackId}/domains/${encodeURIComponent(domain)}/verify`,
+          {
+            method: "POST",
+          },
+        );
+      },
     },
   },
 

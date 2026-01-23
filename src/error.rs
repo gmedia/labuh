@@ -39,6 +39,12 @@ pub enum AppError {
 
     #[error("Container runtime error: {0}")]
     ContainerRuntime(String),
+
+    #[error("Authentication error: {0}")]
+    Auth(String),
+
+    #[error("Bad request: {0}")]
+    BadRequest(String),
 }
 
 #[derive(Serialize)]
@@ -98,6 +104,8 @@ impl IntoResponse for AppError {
                     msg.clone(),
                 )
             }
+            AppError::Auth(msg) => (StatusCode::UNAUTHORIZED, "auth_error", msg.clone()),
+            AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, "bad_request", msg.clone()),
         };
 
         let body = Json(ErrorResponse {

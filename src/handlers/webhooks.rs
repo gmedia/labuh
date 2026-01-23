@@ -1,56 +1,65 @@
 use std::sync::Arc;
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
     response::IntoResponse,
     Json,
 };
 use serde_json::json;
 
 use crate::{
-    error::{AppError, Result},
-    services::project::ProjectService,
-    services::container::ContainerService,
-    models::project::Project,
+    error::Result,
+    services::stack::StackService,
+    services::deployment_log::DeploymentLogService,
+    models::CreateDeploymentLog,
 };
 
 #[derive(Clone)]
 pub struct WebhookState {
-    pub project_service: Arc<ProjectService>,
-    pub container_service: Arc<ContainerService>,
+    pub stack_service: Arc<StackService>,
+    pub deployment_log_service: Arc<DeploymentLogService>,
 }
 
 pub async fn trigger_deploy(
     State(state): State<WebhookState>,
-    Path((project_id, token)): Path<(String, String)>,
+    Path((stack_id, token)): Path<(String, String)>,
 ) -> Result<impl IntoResponse> {
-    // 1. Validate token and get project
-    let project = state.project_service.validate_webhook_token(&project_id, &token).await?;
+    // 1. Validate token and get stack
+    let stack = state.stack_service.validate_webhook_token(&stack_id, &token).await?;
 
-    // 2. Trigger deployment
-    // This logic is similar to the manual deploy, but authenticated via token
-    // We basically need to pull the latest image and restart the container
+    // 2. Create deployment log entry
+    let deployment_log = state.deployment_log_service.create(CreateDeploymentLog {
+        stack_id: stack.id.clone(),
+        trigger_type: "webhook".to_string(),
+    }).await?;
 
-    // For now, we'll reuse the deploy logic if possible, or replicate the essential steps.
-    // Since ContainerService::deploy_project handles pulling and starting, we can use that.
+    // 3. Trigger deployment (redeploy stack)
+    // This will pull latest images and recreate containers
+    let result = state.stack_service.redeploy_stack(&stack.id).await;
 
-    // We need to re-fetch the project to ensure we have the latest details (though validate_project returned it)
-    // The main issue might be if deploy_project requires a user_id for logging/permission checks that are different here.
-    // But since we validated the token, we are authorized.
+    match result {
+        Ok(_) => {
+            // Log success (redeploy doesn't return container ID, it manages multiple)
+            state.deployment_log_service.update_status(
+                &deployment_log.id,
+                "success",
+                Some("Stack redeployed successfully"),
+            ).await?;
 
-    // However, ContainerService methods might expect user_id.
-    // Let's check ContainerService::deploy_project signature.
-    // It is: pub async fn deploy_project(&self, project: &Project) -> Result<String>
-    // It takes &Project, so we are good.
+            Ok(Json(json!({
+                "status": "success",
+                "message": "Deployment triggered successfully",
+                "deployment_id": deployment_log.id
+            })))
+        }
+        Err(e) => {
+            // Log failure
+            state.deployment_log_service.update_status(
+                &deployment_log.id,
+                "failed",
+                Some(&format!("Deployment failed: {}", e)),
+            ).await?;
 
-    let container_id = state.container_service.deploy_project(&project).await?;
-
-    // 3. Update project status
-    state.project_service.update_project_status(&project.id, "running", Some(&container_id)).await?;
-
-    Ok(Json(json!({
-        "status": "success",
-        "message": "Deployment triggered successfully",
-        "container_id": container_id
-    })))
+            Err(e)
+        }
+    }
 }

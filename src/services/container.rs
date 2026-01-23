@@ -70,7 +70,7 @@ pub struct CreateContainerRequest {
 }
 
 pub struct ContainerService {
-    docker: Arc<Docker>,
+    pub docker: Arc<Docker>,
 }
 
 impl ContainerService {

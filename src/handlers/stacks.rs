@@ -76,6 +76,15 @@ async fn remove_stack(
     Ok(Json(serde_json::json!({ "status": "removed" })))
 }
 
+async fn regenerate_webhook_token(
+    State(stack_service): State<Arc<StackService>>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>> {
+    let token = stack_service.regenerate_webhook_token(&id, &current_user.id).await?;
+    Ok(Json(serde_json::json!({ "token": token })))
+}
+
 pub fn stack_routes(stack_service: Arc<StackService>) -> Router {
     Router::new()
         .route("/", get(list_stacks))
@@ -85,5 +94,6 @@ pub fn stack_routes(stack_service: Arc<StackService>) -> Router {
         .route("/{id}/containers", get(get_stack_containers))
         .route("/{id}/start", post(start_stack))
         .route("/{id}/stop", post(stop_stack))
+        .route("/{id}/webhook/regenerate", post(regenerate_webhook_token))
         .with_state(stack_service)
 }

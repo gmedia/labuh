@@ -48,7 +48,7 @@
 						<ArrowRight class="h-4 w-4" />
 					</Button>
 				</a>
-				<a href="https://github.com" target="_blank">
+				<a href="https://github.com/HasanH47/labuh" target="_blank">
 					<Button variant="outline" size="lg">
 						View on GitHub
 					</Button>

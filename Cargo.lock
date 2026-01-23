@@ -1069,6 +1069,7 @@ dependencies = [
  "jsonwebtoken",
  "libc",
  "password-hash",
+ "rand 0.8.5",
  "reqwest",
  "serde",
  "serde_json",

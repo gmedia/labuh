@@ -19,20 +19,20 @@ impl DomainService {
         Self { db, caddy_service }
     }
 
-    /// List all domains for a project
-    pub async fn list_domains(&self, project_id: &str) -> Result<Vec<Domain>> {
+    /// List all domains for a stack
+    pub async fn list_domains(&self, stack_id: &str) -> Result<Vec<Domain>> {
         let domains = sqlx::query_as::<_, Domain>(
-            "SELECT * FROM domains WHERE project_id = ? ORDER BY created_at DESC"
+            "SELECT * FROM domains WHERE stack_id = ? ORDER BY created_at DESC"
         )
-        .bind(project_id)
+        .bind(stack_id)
         .fetch_all(&self.db)
         .await?;
 
         Ok(domains)
     }
 
-    /// Add a domain to a project
-    pub async fn add_domain(&self, project_id: &str, domain: &str, container_upstream: &str) -> Result<Domain> {
+    /// Add a domain to a stack
+    pub async fn add_domain(&self, stack_id: &str, domain: &str, container_upstream: &str) -> Result<Domain> {
         // Check if domain already exists
         let existing = sqlx::query_as::<_, Domain>("SELECT * FROM domains WHERE domain = ?")
             .bind(domain)
@@ -48,10 +48,10 @@ impl DomainService {
         let now = Utc::now().to_rfc3339();
 
         sqlx::query(
-            "INSERT INTO domains (id, project_id, domain, ssl_enabled, verified, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO domains (id, stack_id, domain, ssl_enabled, verified, created_at) VALUES (?, ?, ?, ?, ?, ?)"
         )
         .bind(&id)
-        .bind(project_id)
+        .bind(stack_id)
         .bind(domain)
         .bind(true)
         .bind(false)
@@ -78,13 +78,13 @@ impl DomainService {
     }
 
     /// Remove a domain
-    pub async fn remove_domain(&self, project_id: &str, domain: &str) -> Result<()> {
-        // Check domain belongs to project
+    pub async fn remove_domain(&self, stack_id: &str, domain: &str) -> Result<()> {
+        // Check domain belongs to stack
         let domain_record = sqlx::query_as::<_, Domain>(
-            "SELECT * FROM domains WHERE domain = ? AND project_id = ?"
+            "SELECT * FROM domains WHERE domain = ? AND stack_id = ?"
         )
         .bind(domain)
-        .bind(project_id)
+        .bind(stack_id)
         .fetch_optional(&self.db)
         .await?
         .ok_or_else(|| AppError::NotFound("Domain not found".to_string()))?;
@@ -101,35 +101,29 @@ impl DomainService {
         Ok(())
     }
 
-    /// Get project upstream address (container_name:port)
-    pub async fn get_project_upstream(&self, project_id: &str) -> Result<String> {
+    /// Get stack upstream address (container_name:port)
+    pub async fn get_stack_upstream(&self, stack_id: &str) -> Result<String> {
+        // For stacks, we look at the first service in the compose file or use stack name
         #[derive(sqlx::FromRow)]
-        struct ProjectInfo {
-            container_id: Option<String>,
-            port: Option<i64>,
-            slug: String,
+        struct StackInfo {
+            name: String,
         }
 
-        let project = sqlx::query_as::<_, ProjectInfo>(
-            "SELECT container_id, port, slug FROM projects WHERE id = ?"
+        let stack = sqlx::query_as::<_, StackInfo>(
+            "SELECT name FROM stacks WHERE id = ?"
         )
-        .bind(project_id)
+        .bind(stack_id)
         .fetch_optional(&self.db)
         .await?
-        .ok_or_else(|| AppError::NotFound("Project not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Stack not found".to_string()))?;
 
-        let port = project.port.unwrap_or(80);
-
-        // Use project slug as container name (or container_id if available)
-        let container_name = project.slug;
-
-        Ok(format!("{}:{}", container_name, port))
+        // Default to port 80, stack name as upstream
+        Ok(format!("{}:80", stack.name))
     }
 
     /// Verify domain DNS (basic check)
     pub async fn verify_domain(&self, domain: &str) -> Result<bool> {
         // For now, just mark as verified (real implementation would check DNS)
-        // In production: use trust-dns or resolve to check A/CNAME records
         sqlx::query("UPDATE domains SET verified = ? WHERE domain = ?")
             .bind(true)
             .bind(domain)
@@ -139,3 +133,5 @@ impl DomainService {
         Ok(true)
     }
 }
+
+

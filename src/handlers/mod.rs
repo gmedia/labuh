@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod containers;
 pub mod deploy;
+pub mod deployment_logs;
 pub mod domains;
 pub mod health;
 pub mod images;
@@ -13,6 +14,7 @@ pub mod webhooks;
 pub use auth::auth_routes;
 pub use containers::container_routes;
 pub use deploy::{deploy_routes, streaming_routes};
+pub use deployment_logs::deployment_log_routes;
 pub use domains::domain_routes;
 pub use health::health_routes;
 pub use images::image_routes;

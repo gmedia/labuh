@@ -16,12 +16,12 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use crate::config::Config;
 use crate::handlers::auth::protected_auth_routes;
 use crate::handlers::{
-    auth_routes, container_routes, deploy_routes, domain_routes, health_routes, image_routes,
+    auth_routes, container_routes, deploy_routes, deployment_log_routes, domain_routes, health_routes, image_routes,
     project_routes, registry_routes, stack_routes, streaming_routes, system_routes,
 };
 use crate::middleware::auth_middleware;
 use crate::services::{
-    AuthService, CaddyService, ContainerService, DeployService, DomainService, ProjectService,
+    AuthService, CaddyService, ContainerService, DeploymentLogService, DeployService, DomainService, ProjectService,
     RegistryService, StackService,
 };
 
@@ -79,6 +79,14 @@ async fn main() -> anyhow::Result<()> {
     // Create Caddy service
     let caddy_service = Arc::new(CaddyService::new(config.caddy_admin_api.clone()));
 
+    // Bootstrap Caddy if container service is available
+    if let Some(ref container_svc) = container_service {
+        tracing::info!("Bootstrapping Caddy...");
+        if let Err(e) = caddy_service.bootstrap(container_svc).await {
+            tracing::error!("Failed to bootstrap Caddy: {}. Ensure port 80/443 are free.", e);
+        }
+    }
+
     // CORS layer
     let cors = CorsLayer::new()
         .allow_origin(Any)
@@ -91,15 +99,18 @@ async fn main() -> anyhow::Result<()> {
     // Create registry service
     let registry_service = Arc::new(RegistryService::new(pool.clone()));
 
+    // Create deployment log service
+    let deployment_log_service = Arc::new(DeploymentLogService::new(pool.clone()));
+
     // Protected routes (require authentication)
     let mut protected_routes = Router::new()
         .merge(protected_auth_routes())
         .nest("/projects", project_routes(project_service.clone()))
-        .nest("/projects", domain_routes(domain_service))
+        // Domain and log routes moved to /stacks, handled inside if container_svc block
         .nest("/registries", registry_routes(registry_service));
 
-    // Webhook routes (initially empty, populated if container service is available)
-    let mut webhook_routes = Router::new();
+    // Webhook routes (only available if container service is available)
+    let mut webhook_routes: Option<Router> = None;
 
     // Add container, stack, and deploy routes if container runtime is available
     if let Some(ref container_svc) = container_service {
@@ -118,18 +129,22 @@ async fn main() -> anyhow::Result<()> {
             .nest("/containers", container_routes(container_svc.clone()))
             .nest("/containers", streaming_routes(container_svc.clone()))
             .nest("/images", image_routes(container_svc.clone()))
-            .nest("/stacks", stack_routes(stack_service))
+            .nest("/stacks", stack_routes(stack_service.clone()))
+            .nest("/stacks", domain_routes(domain_service))
+            .nest("/stacks", deployment_log_routes(deployment_log_service.clone(), stack_service.clone()))
             .nest("/projects", deploy_routes(deploy_service));
 
         // Create webhook state and routes
         let webhook_state = handlers::webhooks::WebhookState {
-            project_service: project_service.clone(),
-            container_service: container_svc.clone(),
+            stack_service: stack_service.clone(),
+            deployment_log_service: deployment_log_service.clone(),
         };
 
-        webhook_routes = webhook_routes
-            .route("/deploy/:project_id/:token", axum::routing::post(handlers::webhooks::trigger_deploy))
-            .with_state(webhook_state);
+        webhook_routes = Some(
+            Router::new()
+                .route("/deploy/{stack_id}/{token}", axum::routing::post(handlers::webhooks::trigger_deploy))
+                .with_state(webhook_state)
+        );
     }
 
     let protected_routes = protected_routes.layer(axum_middleware::from_fn_with_state(
@@ -138,11 +153,16 @@ async fn main() -> anyhow::Result<()> {
     ));
 
     // Build application router
-    let app = Router::new()
+    let mut app = Router::new()
         .nest("/api", health_routes())
         .nest("/api/system", system_routes())
-        .nest("/api/auth", auth_routes(auth_service.clone()))
-        .nest("/api/webhooks", webhook_routes)
+        .nest("/api/auth", auth_routes(auth_service.clone()));
+
+    if let Some(webhook_router) = webhook_routes {
+        app = app.nest("/api/webhooks", webhook_router);
+    }
+
+    let app = app
         .nest("/api", protected_routes)
         .layer(TraceLayer::new_for_http())
         .layer(cors);

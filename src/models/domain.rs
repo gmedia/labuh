@@ -4,7 +4,7 @@ use sqlx::FromRow;
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Domain {
     pub id: String,
-    pub project_id: String,
+    pub stack_id: String,
     pub domain: String,
     pub ssl_enabled: bool,
     pub verified: bool,
@@ -19,7 +19,7 @@ pub struct CreateDomain {
 #[derive(Debug, Serialize)]
 pub struct DomainResponse {
     pub id: String,
-    pub project_id: String,
+    pub stack_id: String,
     pub domain: String,
     pub ssl_enabled: bool,
     pub verified: bool,
@@ -30,7 +30,7 @@ impl From<Domain> for DomainResponse {
     fn from(d: Domain) -> Self {
         Self {
             id: d.id,
-            project_id: d.project_id,
+            stack_id: d.stack_id,
             domain: d.domain,
             ssl_enabled: d.ssl_enabled,
             verified: d.verified,

@@ -1,31 +1,31 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type SystemStats, type Container, type Image, type Project } from '$lib/api';
+	import { api, type SystemStats, type Container, type Image, type Stack } from '$lib/api';
 	import * as Card from '$lib/components/ui/card';
-	import { Container as ContainerIcon, Image as ImageIcon, FolderKanban, Activity, Cpu, HardDrive, Clock } from '@lucide/svelte';
+	import { Container as ContainerIcon, Image as ImageIcon, Layers, Activity, Cpu, HardDrive, Clock } from '@lucide/svelte';
 
 	let systemHealth = $state<{ status: string; version: string } | null>(null);
 	let systemStats = $state<SystemStats | null>(null);
 	let containers = $state<Container[]>([]);
 	let images = $state<Image[]>([]);
-	let projects = $state<Project[]>([]);
+	let stacks = $state<Stack[]>([]);
 	let loading = $state(true);
 
 	onMount(async () => {
 		// Fetch all data
-		const [healthRes, statsRes, containersRes, imagesRes, projectsRes] = await Promise.all([
+		const [healthRes, statsRes, containersRes, imagesRes, stacksRes] = await Promise.all([
 			api.health.check(),
 			api.system.stats(),
 			api.containers.list(true),
 			api.images.list(),
-			api.projects.list(),
+			api.stacks.list(),
 		]);
 
 		if (healthRes.data) systemHealth = healthRes.data;
 		if (statsRes.data) systemStats = statsRes.data;
 		if (containersRes.data) containers = containersRes.data;
 		if (imagesRes.data) images = imagesRes.data;
-		if (projectsRes.data) projects = projectsRes.data;
+		if (stacksRes.data) stacks = stacksRes.data;
 
 		loading = false;
 	});
@@ -87,12 +87,12 @@
 
 			<Card.Root>
 				<Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
-					<Card.Title class="text-sm font-medium">Projects</Card.Title>
-					<FolderKanban class="h-4 w-4 text-purple-500" />
+					<Card.Title class="text-sm font-medium">Stacks</Card.Title>
+					<Layers class="h-4 w-4 text-purple-500" />
 				</Card.Header>
 				<Card.Content>
-					<div class="text-2xl font-bold">{projects.length}</div>
-					<p class="text-xs text-muted-foreground">{projects.filter(p => p.status === 'running').length} running</p>
+					<div class="text-2xl font-bold">{stacks.length}</div>
+					<p class="text-xs text-muted-foreground">{stacks.filter(s => s.status === 'running').length} running</p>
 				</Card.Content>
 			</Card.Root>
 
@@ -186,9 +186,9 @@
 						<ImageIcon class="h-5 w-5 text-muted-foreground" />
 						<span>Pull Image</span>
 					</a>
-					<a href="/dashboard/projects" class="flex items-center gap-2 rounded-lg border p-3 hover:bg-accent transition-colors">
-						<FolderKanban class="h-5 w-5 text-muted-foreground" />
-						<span>Create Project</span>
+					<a href="/dashboard/stacks" class="flex items-center gap-2 rounded-lg border p-3 hover:bg-accent transition-colors">
+						<Layers class="h-5 w-5 text-muted-foreground" />
+						<span>Create Stack</span>
 					</a>
 				</div>
 			</Card.Content>

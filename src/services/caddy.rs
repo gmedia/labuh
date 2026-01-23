@@ -24,6 +24,94 @@ impl CaddyService {
         }
     }
 
+    /// Ensure Caddy container is running
+    pub async fn bootstrap(&self, container_service: &crate::services::ContainerService) -> Result<()> {
+        let container_name = "labuh-caddy";
+
+        // Check if running
+        let containers = container_service.list_containers(true).await?;
+        let existing = containers.iter().find(|c| c.names.iter().any(|n| n.contains(container_name)));
+
+        if let Some(c) = existing {
+            if c.state != "running" {
+                tracing::info!("Starting existing Caddy container...");
+                container_service.start_container(&c.id).await?;
+            }
+            return Ok(());
+        }
+
+        tracing::info!("Creating Caddy container...");
+
+        // Define Caddy container config
+        let image = "caddy:2-alpine";
+
+        // Ensure image exists
+        container_service.pull_image(image).await?;
+
+        // Setup port bindings
+        let mut port_bindings = HashMap::new();
+        port_bindings.insert(
+            "80/tcp".to_string(),
+            Some(vec![bollard::models::PortBinding {
+                host_ip: Some("0.0.0.0".to_string()),
+                host_port: Some("80".to_string()),
+            }]),
+        );
+        port_bindings.insert(
+            "443/tcp".to_string(),
+            Some(vec![bollard::models::PortBinding {
+                host_ip: Some("0.0.0.0".to_string()),
+                host_port: Some("443".to_string()),
+            }]),
+        );
+
+        // Create container config
+        let config = bollard::container::Config {
+            image: Some(image.to_string()),
+            cmd: Some(vec![
+                "caddy".to_string(), "run".to_string(),
+                "--config".to_string(), "/etc/caddy/Caddyfile".to_string(),
+                "--adapter".to_string(), "caddyfile".to_string(),
+            ]),
+            exposed_ports: Some(HashMap::from([
+                ("80/tcp".to_string(), HashMap::new()),
+                ("443/tcp".to_string(), HashMap::new()),
+            ])),
+            host_config: Some(bollard::service::HostConfig {
+                network_mode: Some("bridge".to_string()),
+                port_bindings: Some(port_bindings),
+                extra_hosts: Some(vec![
+                    "labuh:host-gateway".to_string(),
+                    "frontend:host-gateway".to_string(),
+                ]),
+                binds: Some(vec![
+                    format!("{}/Caddyfile:/etc/caddy/Caddyfile", std::env::current_dir().unwrap().to_string_lossy()),
+                    "caddy_data:/data".to_string(),
+                    "caddy_config:/config".to_string(),
+                ]),
+                restart_policy: Some(bollard::service::RestartPolicy {
+                    name: Some(bollard::service::RestartPolicyNameEnum::UNLESS_STOPPED),
+                    maximum_retry_count: None,
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+
+        let options = bollard::container::CreateContainerOptions {
+            name: container_name,
+            ..Default::default()
+        };
+
+        container_service.docker.create_container(Some(options), config).await
+            .map_err(|e| crate::error::AppError::ContainerRuntime(e.to_string()))?;
+
+        tracing::info!("Starting Caddy container...");
+        container_service.start_container(container_name).await?;
+
+        Ok(())
+    }
+
     /// Generate Caddyfile content from routes
     pub fn generate_caddyfile(
         &self,
