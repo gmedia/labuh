@@ -5,6 +5,7 @@ pub mod container;
 pub mod deploy;
 pub mod domain;
 pub mod project;
+pub mod registry;
 pub mod stack;
 
 pub use auth::AuthService;
@@ -13,4 +14,5 @@ pub use container::ContainerService;
 pub use deploy::DeployService;
 pub use domain::DomainService;
 pub use project::ProjectService;
+pub use registry::RegistryService;
 pub use stack::StackService;

@@ -74,18 +74,18 @@
   - [ ] Connect Caddy to all project networks
   - [ ] Internal DNS resolution (container-name.labuh)
 
-### Phase 9: Private Registry & Auth
+### Phase 9: Private Registry & Auth ✅
 
-- [ ] **Registry Credentials**
-  - [ ] Store Docker Hub credentials
-  - [ ] Store GitHub Container Registry (ghcr.io) tokens
-  - [ ] Store custom registry credentials
-  - [ ] Credential management UI
-  - [ ] Per-project registry config
+- [x] **Registry Credentials**
+  - [x] Store Docker Hub credentials
+  - [x] Store GitHub Container Registry (ghcr.io) tokens
+  - [x] Store custom registry credentials
+  - [x] Credential management UI
+  - [ ] Per-project registry config (using global user credentials for now)
 
-- [ ] **Authenticated Pull**
-  - [ ] Use stored credentials when pulling
-  - [ ] Support for private images
+- [x] **Authenticated Pull**
+  - [x] Use stored credentials when pulling
+  - [x] Support for private images
 
 ### Phase 10: Webhooks & CI/CD
 

@@ -361,12 +361,30 @@ impl ContainerService {
 
     /// Pull an image from registry
     pub async fn pull_image(&self, image: &str) -> Result<()> {
+        self.pull_image_with_auth(image, None).await
+    }
+
+    /// Pull an image with optional authentication
+    pub async fn pull_image_with_auth(
+        &self,
+        image: &str,
+        credentials: Option<(String, String)>,
+    ) -> Result<()> {
         let options = CreateImageOptions {
             from_image: image,
             ..Default::default()
         };
 
-        let mut stream = self.docker.create_image(Some(options), None, None);
+        // Build auth config if credentials provided
+        let auth = credentials.map(|(username, password)| {
+            bollard::auth::DockerCredentials {
+                username: Some(username),
+                password: Some(password),
+                ..Default::default()
+            }
+        });
+
+        let mut stream = self.docker.create_image(Some(options), None, auth);
 
         while let Some(result) = stream.next().await {
             match result {

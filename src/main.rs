@@ -17,12 +17,12 @@ use crate::config::Config;
 use crate::handlers::auth::protected_auth_routes;
 use crate::handlers::{
     auth_routes, container_routes, deploy_routes, domain_routes, health_routes, image_routes,
-    project_routes, stack_routes, streaming_routes, system_routes,
+    project_routes, registry_routes, stack_routes, streaming_routes, system_routes,
 };
 use crate::middleware::auth_middleware;
 use crate::services::{
     AuthService, CaddyService, ContainerService, DeployService, DomainService, ProjectService,
-    StackService,
+    RegistryService, StackService,
 };
 
 #[tokio::main]
@@ -88,11 +88,15 @@ async fn main() -> anyhow::Result<()> {
     // Create domain service
     let domain_service = Arc::new(DomainService::new(pool.clone(), caddy_service.clone()));
 
+    // Create registry service
+    let registry_service = Arc::new(RegistryService::new(pool.clone()));
+
     // Protected routes (require authentication)
     let mut protected_routes = Router::new()
         .merge(protected_auth_routes())
         .nest("/projects", project_routes(project_service.clone()))
-        .nest("/projects", domain_routes(domain_service));
+        .nest("/projects", domain_routes(domain_service))
+        .nest("/registries", registry_routes(registry_service));
 
     // Add container, stack, and deploy routes if container runtime is available
     if let Some(ref container_svc) = container_service {

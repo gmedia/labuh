@@ -5,6 +5,7 @@ pub mod domains;
 pub mod health;
 pub mod images;
 pub mod projects;
+pub mod registries;
 pub mod stacks;
 pub mod system;
 
@@ -15,5 +16,6 @@ pub use domains::domain_routes;
 pub use health::health_routes;
 pub use images::image_routes;
 pub use projects::project_routes;
+pub use registries::registry_routes;
 pub use stacks::stack_routes;
 pub use system::system_routes;

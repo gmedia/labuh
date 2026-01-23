@@ -165,6 +165,22 @@ export interface CreateDomain {
   domain: string;
 }
 
+export interface RegistryCredential {
+  id: string;
+  name: string;
+  registry_url: string;
+  username: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateRegistryCredential {
+  name: string;
+  registry_url: string;
+  username: string;
+  password: string;
+}
+
 export const api = {
   auth: {
     login: async (data: LoginRequest) => {
@@ -400,6 +416,25 @@ export const api = {
 
     remove: async (id: string) => {
       return fetchApi<{ status: string }>(`/stacks/${id}`, {
+        method: "DELETE",
+      });
+    },
+  },
+
+  registries: {
+    list: async () => {
+      return fetchApi<RegistryCredential[]>("/registries");
+    },
+
+    add: async (data: CreateRegistryCredential) => {
+      return fetchApi<RegistryCredential>("/registries", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+
+    remove: async (id: string) => {
+      return fetchApi<{ status: string }>(`/registries/${id}`, {
         method: "DELETE",
       });
     },
