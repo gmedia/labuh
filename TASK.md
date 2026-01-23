@@ -54,19 +54,19 @@
   - [ ] Stack-level logs viewer
   - [ ] Stack health overview
 
-### Phase 8: Domain & Routing (Caddy)
+### Phase 8: Domain & Routing (Caddy) ✅
 
-- [ ] **Domain Management**
-  - [ ] Add custom domains per project
+- [x] **Domain Management**
+  - [x] Add custom domains per project
   - [ ] Subdomain auto-generation (app-name.labuh.local)
   - [ ] DNS verification
-  - [ ] SSL auto-provisioning (Let's Encrypt)
+  - [x] SSL auto-provisioning (Let's Encrypt via Caddy)
 
-- [ ] **Caddy Integration**
+- [x] **Caddy Integration**
   - [ ] Auto-create Caddy container (port 80, 443)
-  - [ ] Dynamic route updates via Caddy API
+  - [x] Dynamic route updates via Caddy API
   - [ ] Handle Docker networks (connect Caddy to container networks)
-  - [ ] Reverse proxy configuration UI
+  - [x] Reverse proxy configuration UI
   - [ ] Basic Auth protection per route
 
 - [ ] **Networking**

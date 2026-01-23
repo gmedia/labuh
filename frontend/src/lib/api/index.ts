@@ -152,6 +152,19 @@ export interface CreateStack {
   compose_content: string;
 }
 
+export interface Domain {
+  id: string;
+  project_id: string;
+  domain: string;
+  ssl_enabled: boolean;
+  verified: boolean;
+  created_at: string;
+}
+
+export interface CreateDomain {
+  domain: string;
+}
+
 export const api = {
   auth: {
     login: async (data: LoginRequest) => {
@@ -318,6 +331,38 @@ export const api = {
       return fetchApi<Project>(`/projects/${id}/restart`, {
         method: "POST",
       });
+    },
+
+    // Domain management
+    domains: {
+      list: async (projectId: string) => {
+        return fetchApi<Domain[]>(`/projects/${projectId}/domains`);
+      },
+
+      add: async (projectId: string, domain: string) => {
+        return fetchApi<Domain>(`/projects/${projectId}/domains`, {
+          method: "POST",
+          body: JSON.stringify({ domain }),
+        });
+      },
+
+      remove: async (projectId: string, domain: string) => {
+        return fetchApi<{ status: string }>(
+          `/projects/${projectId}/domains/${encodeURIComponent(domain)}`,
+          {
+            method: "DELETE",
+          },
+        );
+      },
+
+      verify: async (projectId: string, domain: string) => {
+        return fetchApi<{ verified: boolean }>(
+          `/projects/${projectId}/domains/${encodeURIComponent(domain)}/verify`,
+          {
+            method: "POST",
+          },
+        );
+      },
     },
   },
 
