@@ -155,6 +155,23 @@ impl DomainService {
             cname_records,
         })
     }
+    /// Sync all domains from database to Caddy
+    pub async fn sync_all_routes(&self) -> Result<()> {
+        let domains = sqlx::query_as::<_, Domain>("SELECT * FROM domains")
+            .fetch_all(&self.db)
+            .await?;
+
+        tracing::info!("Syncing {} domains to Caddy...", domains.len());
+
+        for domain in domains {
+            let container_upstream = format!("{}:{}", domain.container_name, domain.container_port);
+            if let Err(e) = self.caddy_service.add_route(&domain.domain, &container_upstream).await {
+                tracing::error!("Failed to sync route for domain {}: {}", domain.domain, e);
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// Result of DNS verification

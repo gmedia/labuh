@@ -96,6 +96,13 @@ async fn main() -> anyhow::Result<()> {
         if let Err(e) = network_service.connect_container("labuh-caddy").await {
             tracing::warn!("Could not connect Caddy to labuh-network: {}", e);
         }
+
+        // Sync all domains to Caddy after bootstrap
+        let ds = DomainService::new(pool.clone(), caddy_service.clone());
+        tracing::info!("Syncing domains to Caddy...");
+        if let Err(e) = ds.sync_all_routes().await {
+            tracing::error!("Failed to sync domains to Caddy: {}", e);
+        }
     }
 
     // CORS layer

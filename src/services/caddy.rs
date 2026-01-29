@@ -247,10 +247,13 @@ impl CaddyService {
         Ok(())
     }
 
-    /// Add a new route dynamically
+    /// Initialize a new route
     pub async fn add_route(&self, domain: &str, upstream: &str) -> Result<()> {
         // Ensure srv0 structure exists first
         self.ensure_srv0().await?;
+
+        // Remove existing route for this domain if it exists to prevent duplicates
+        let _ = self.remove_route(domain).await;
 
         let route_config = serde_json::json!({
             "match": [{
@@ -263,11 +266,6 @@ impl CaddyService {
                 }]
             }]
         });
-
-        let url = format!(
-            "{}/config/apps/http/servers/srv0/routes",
-            self.admin_api_url
-        );
 
         let response = self.request_with_fallback(reqwest::Method::POST, "/config/apps/http/servers/srv0/routes", Some(route_config.clone())).await?;
 
@@ -312,44 +310,54 @@ impl CaddyService {
         Ok(())
     }
 
-    /// Remove a route by domain
+    /// Remove all routes matching a domain
     pub async fn remove_route(&self, domain: &str) -> Result<()> {
-        let response = self.request_with_fallback(reqwest::Method::GET, "/config/apps/http/servers/srv0/routes", None).await?;
+        let mut found_any = false;
 
-        if !response.status().is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::CaddyApi(format!(
-                "Failed to get routes: {}",
-                error_text
-            )));
-        }
+        loop {
+            let response = self.request_with_fallback(reqwest::Method::GET, "/config/apps/http/servers/srv0/routes", None).await?;
 
-        let routes: Vec<serde_json::Value> = response
-            .json()
-            .await
-            .map_err(|e| AppError::CaddyApi(e.to_string()))?;
+            if !response.status().is_success() {
+                break;
+            }
 
-        // Find and remove the route with matching domain
-        for (index, route) in routes.iter().enumerate() {
-            if let Some(matches) = route.get("match") {
-                if let Some(hosts) = matches.get(0).and_then(|m| m.get("host")) {
-                    if hosts
-                        .as_array()
-                        .map(|arr| arr.iter().any(|h| h.as_str() == Some(domain)))
-                        .unwrap_or(false)
-                    {
-                        self.request_with_fallback(reqwest::Method::DELETE, &format!("/config/apps/http/servers/srv0/routes/{}", index), None).await?;
-                        tracing::info!("Removed route for domain: {}", domain);
-                        return Ok(());
+            let routes: Vec<serde_json::Value> = response
+                .json()
+                .await
+                .map_err(|e| AppError::CaddyApi(e.to_string()))?;
+
+            let mut index_to_remove = None;
+            for (index, route) in routes.iter().enumerate() {
+                if let Some(matches) = route.get("match") {
+                    if let Some(hosts) = matches.get(0).and_then(|m| m.get("host")) {
+                        if hosts
+                            .as_array()
+                            .map(|arr| arr.iter().any(|h| h.as_str() == Some(domain)))
+                            .unwrap_or(false)
+                        {
+                            index_to_remove = Some(index);
+                            break;
+                        }
                     }
                 }
             }
+
+            if let Some(index) = index_to_remove {
+                self.request_with_fallback(reqwest::Method::DELETE, &format!("/config/apps/http/servers/srv0/routes/{}", index), None).await?;
+                found_any = true;
+            } else {
+                break;
+            }
         }
 
-        Err(AppError::NotFound(format!(
-            "Route for domain {} not found",
-            domain
-        )))
+        if found_any {
+            Ok(())
+        } else {
+            Err(AppError::NotFound(format!(
+                "Route for domain {} not found",
+                domain
+            )))
+        }
     }
 
     /// Add a route with Basic Auth protection

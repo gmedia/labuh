@@ -59,14 +59,24 @@ impl NetworkService {
             endpoint_config: EndpointSettings::default(),
         };
 
-        docker.connect_network(LABUH_NETWORK, config).await
-            .map_err(|e| AppError::ContainerRuntime(format!(
-                "Failed to connect container {} to {}: {}",
-                container_id, LABUH_NETWORK, e
-            )))?;
-
-        tracing::debug!("Connected container {} to {}", container_id, LABUH_NETWORK);
-        Ok(())
+        match docker.connect_network(LABUH_NETWORK, config).await {
+            Ok(_) => {
+                tracing::debug!("Connected container {} to {}", container_id, LABUH_NETWORK);
+                Ok(())
+            }
+            Err(e) => {
+                // Ignore if already connected (status 403 Conflict)
+                if e.to_string().contains("403") || e.to_string().contains("already exists") {
+                    tracing::debug!("Container {} already connected to {}", container_id, LABUH_NETWORK);
+                    Ok(())
+                } else {
+                    Err(AppError::ContainerRuntime(format!(
+                        "Failed to connect container {} to {}: {}",
+                        container_id, LABUH_NETWORK, e
+                    )))
+                }
+            }
+        }
     }
 
     /// Connect Caddy to a specific network (for stack isolation)
