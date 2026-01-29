@@ -1,6 +1,6 @@
 //! Registry service for managing private registry credentials
 
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use chrono::Utc;
 use sqlx::SqlitePool;
 use uuid::Uuid;
@@ -25,7 +25,8 @@ impl RegistryService {
     /// Decode password
     #[allow(dead_code)]
     fn decode_password(encoded: &str) -> Result<String> {
-        let bytes = BASE64.decode(encoded)
+        let bytes = BASE64
+            .decode(encoded)
             .map_err(|_| AppError::Internal("Failed to decode password".to_string()))?;
         String::from_utf8(bytes)
             .map_err(|_| AppError::Internal("Invalid password encoding".to_string()))
@@ -34,7 +35,7 @@ impl RegistryService {
     /// List all credentials for a user (passwords hidden)
     pub async fn list_credentials(&self, user_id: &str) -> Result<Vec<RegistryCredential>> {
         let credentials = sqlx::query_as::<_, RegistryCredential>(
-            "SELECT * FROM registry_credentials WHERE user_id = ? ORDER BY created_at DESC"
+            "SELECT * FROM registry_credentials WHERE user_id = ? ORDER BY created_at DESC",
         )
         .bind(user_id)
         .fetch_all(&self.db)
@@ -77,7 +78,7 @@ impl RegistryService {
     /// Get a single credential
     pub async fn get_credential(&self, id: &str, user_id: &str) -> Result<RegistryCredential> {
         let credential = sqlx::query_as::<_, RegistryCredential>(
-            "SELECT * FROM registry_credentials WHERE id = ? AND user_id = ?"
+            "SELECT * FROM registry_credentials WHERE id = ? AND user_id = ?",
         )
         .bind(id)
         .bind(user_id)
@@ -105,12 +106,16 @@ impl RegistryService {
 
     /// Get credentials for a specific registry (used during image pull)
     #[allow(dead_code)]
-    pub async fn get_credentials_for_registry(&self, user_id: &str, image: &str) -> Result<Option<(String, String)>> {
+    pub async fn get_credentials_for_registry(
+        &self,
+        user_id: &str,
+        image: &str,
+    ) -> Result<Option<(String, String)>> {
         // Extract registry from image name
         let registry_url = Self::extract_registry_from_image(image);
 
         let credential = sqlx::query_as::<_, RegistryCredential>(
-            "SELECT * FROM registry_credentials WHERE user_id = ? AND registry_url = ? LIMIT 1"
+            "SELECT * FROM registry_credentials WHERE user_id = ? AND registry_url = ? LIMIT 1",
         )
         .bind(user_id)
         .bind(&registry_url)

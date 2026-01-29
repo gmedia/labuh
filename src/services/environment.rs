@@ -39,7 +39,11 @@ impl From<StackEnvVar> for StackEnvVarResponse {
             stack_id: env.stack_id,
             container_name: env.container_name,
             key: env.key,
-            value: if env.is_secret { "********".to_string() } else { env.value },
+            value: if env.is_secret {
+                "********".to_string()
+            } else {
+                env.value
+            },
             is_secret: env.is_secret,
             created_at: env.created_at,
             updated_at: env.updated_at,
@@ -59,7 +63,7 @@ impl EnvironmentService {
     /// List all environment variables for a stack
     pub async fn list(&self, stack_id: &str) -> Result<Vec<StackEnvVar>> {
         let vars = sqlx::query_as::<_, StackEnvVar>(
-            "SELECT * FROM stack_env_vars WHERE stack_id = ? ORDER BY container_name, key"
+            "SELECT * FROM stack_env_vars WHERE stack_id = ? ORDER BY container_name, key",
         )
         .bind(stack_id)
         .fetch_all(&self.db)
@@ -70,7 +74,11 @@ impl EnvironmentService {
 
     /// Get environment variables as a HashMap (for container creation)
     /// Merges global and container-specific variables
-    pub async fn get_env_map_for_container(&self, stack_id: &str, container_name: &str) -> Result<std::collections::HashMap<String, String>> {
+    pub async fn get_env_map_for_container(
+        &self,
+        stack_id: &str,
+        container_name: &str,
+    ) -> Result<std::collections::HashMap<String, String>> {
         // Fetch all vars for this stack
         let vars = self.list(stack_id).await?;
 
@@ -90,12 +98,19 @@ impl EnvironmentService {
     }
 
     /// Set an environment variable (create or update)
-    pub async fn set(&self, stack_id: &str, container_name: &str, key: &str, value: &str, is_secret: bool) -> Result<StackEnvVar> {
+    pub async fn set(
+        &self,
+        stack_id: &str,
+        container_name: &str,
+        key: &str,
+        value: &str,
+        is_secret: bool,
+    ) -> Result<StackEnvVar> {
         let now = Utc::now().to_rfc3339();
 
         // Try to find existing
         let existing = sqlx::query_as::<_, StackEnvVar>(
-            "SELECT * FROM stack_env_vars WHERE stack_id = ? AND container_name = ? AND key = ?"
+            "SELECT * FROM stack_env_vars WHERE stack_id = ? AND container_name = ? AND key = ?",
         )
         .bind(stack_id)
         .bind(container_name)
@@ -106,7 +121,7 @@ impl EnvironmentService {
         if let Some(env) = existing {
             // Update existing
             sqlx::query(
-                "UPDATE stack_env_vars SET value = ?, is_secret = ?, updated_at = ? WHERE id = ?"
+                "UPDATE stack_env_vars SET value = ?, is_secret = ?, updated_at = ? WHERE id = ?",
             )
             .bind(value)
             .bind(is_secret)
@@ -139,19 +154,17 @@ impl EnvironmentService {
 
     /// Get a single environment variable by ID
     pub async fn get(&self, id: &str) -> Result<StackEnvVar> {
-        sqlx::query_as::<_, StackEnvVar>(
-            "SELECT * FROM stack_env_vars WHERE id = ?"
-        )
-        .bind(id)
-        .fetch_one(&self.db)
-        .await
-        .map_err(|_| AppError::NotFound("Environment variable not found".to_string()))
+        sqlx::query_as::<_, StackEnvVar>("SELECT * FROM stack_env_vars WHERE id = ?")
+            .bind(id)
+            .fetch_one(&self.db)
+            .await
+            .map_err(|_| AppError::NotFound("Environment variable not found".to_string()))
     }
 
     /// Delete an environment variable
     pub async fn delete(&self, stack_id: &str, container_name: &str, key: &str) -> Result<()> {
         let result = sqlx::query(
-            "DELETE FROM stack_env_vars WHERE stack_id = ? AND container_name = ? AND key = ?"
+            "DELETE FROM stack_env_vars WHERE stack_id = ? AND container_name = ? AND key = ?",
         )
         .bind(stack_id)
         .bind(container_name)
@@ -160,17 +173,27 @@ impl EnvironmentService {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(AppError::NotFound(format!("Environment variable '{}' for container '{}' not found", key, container_name)));
+            return Err(AppError::NotFound(format!(
+                "Environment variable '{}' for container '{}' not found",
+                key, container_name
+            )));
         }
 
         Ok(())
     }
 
     /// Bulk set environment variables
-    pub async fn bulk_set(&self, stack_id: &str, container_name: &str, vars: Vec<(String, String, bool)>) -> Result<Vec<StackEnvVar>> {
+    pub async fn bulk_set(
+        &self,
+        stack_id: &str,
+        container_name: &str,
+        vars: Vec<(String, String, bool)>,
+    ) -> Result<Vec<StackEnvVar>> {
         let mut results = Vec::new();
         for (key, value, is_secret) in vars {
-            let var = self.set(stack_id, container_name, &key, &value, is_secret).await?;
+            let var = self
+                .set(stack_id, container_name, &key, &value, is_secret)
+                .await?;
             results.push(var);
         }
         Ok(results)

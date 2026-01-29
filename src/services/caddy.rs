@@ -26,7 +26,12 @@ impl CaddyService {
     }
 
     /// Helper to perform requests with localhost -> caddy fallback
-    async fn request_with_fallback(&self, method: reqwest::Method, path: &str, body: Option<serde_json::Value>) -> Result<reqwest::Response> {
+    async fn request_with_fallback(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        body: Option<serde_json::Value>,
+    ) -> Result<reqwest::Response> {
         let url = format!("{}{}", self.admin_api_url, path);
         let mut builder = self.client.request(method.clone(), &url);
         if let Some(ref b) = body {
@@ -44,7 +49,9 @@ impl CaddyService {
                 if let Some(ref b) = body {
                     fallback_builder = fallback_builder.json(b);
                 }
-                fallback_builder.send().await
+                fallback_builder
+                    .send()
+                    .await
                     .map_err(|e| AppError::CaddyApi(e.to_string()))
             }
             Err(e) => Err(AppError::CaddyApi(e.to_string())),
@@ -52,12 +59,17 @@ impl CaddyService {
     }
 
     /// Ensure Caddy container is running
-    pub async fn bootstrap(&self, container_service: &crate::services::ContainerService) -> Result<()> {
+    pub async fn bootstrap(
+        &self,
+        container_service: &crate::services::ContainerService,
+    ) -> Result<()> {
         let container_name = "labuh-caddy";
 
         // Check if running
         let containers = container_service.list_containers(true).await?;
-        let existing = containers.iter().find(|c| c.names.iter().any(|n| n.contains(container_name)));
+        let existing = containers
+            .iter()
+            .find(|c| c.names.iter().any(|n| n.contains(container_name)));
 
         if let Some(c) = existing {
             // Check if port 2019 is bound (required for Admin API)
@@ -114,9 +126,12 @@ impl CaddyService {
         let config = bollard::container::Config {
             image: Some(image.to_string()),
             cmd: Some(vec![
-                "caddy".to_string(), "run".to_string(),
-                "--config".to_string(), "/etc/caddy/Caddyfile".to_string(),
-                "--adapter".to_string(), "caddyfile".to_string(),
+                "caddy".to_string(),
+                "run".to_string(),
+                "--config".to_string(),
+                "/etc/caddy/Caddyfile".to_string(),
+                "--adapter".to_string(),
+                "caddyfile".to_string(),
             ]),
             exposed_ports: Some(HashMap::from([
                 ("80/tcp".to_string(), HashMap::new()),
@@ -131,7 +146,10 @@ impl CaddyService {
                     "frontend:host-gateway".to_string(),
                 ]),
                 binds: Some(vec![
-                    format!("{}/Caddyfile:/etc/caddy/Caddyfile", std::env::current_dir().unwrap().to_string_lossy()),
+                    format!(
+                        "{}/Caddyfile:/etc/caddy/Caddyfile",
+                        std::env::current_dir().unwrap().to_string_lossy()
+                    ),
                     "caddy_data:/data".to_string(),
                     "caddy_config:/config".to_string(),
                 ]),
@@ -149,7 +167,10 @@ impl CaddyService {
             ..Default::default()
         };
 
-        container_service.docker.create_container(Some(options), config).await
+        container_service
+            .docker
+            .create_container(Some(options), config)
+            .await
             .map_err(|e| crate::error::AppError::ContainerRuntime(e.to_string()))?;
 
         tracing::info!("Starting Caddy container...");
@@ -233,7 +254,9 @@ impl CaddyService {
             .map_err(|e| AppError::CaddyApi(e.to_string()))?;
 
         // Load the JSON config
-        let load_response = self.request_with_fallback(reqwest::Method::POST, "/load", Some(json_config)).await?;
+        let load_response = self
+            .request_with_fallback(reqwest::Method::POST, "/load", Some(json_config))
+            .await?;
 
         if !load_response.status().is_success() {
             let error_text = load_response.text().await.unwrap_or_default();
@@ -267,7 +290,13 @@ impl CaddyService {
             }]
         });
 
-        let response = self.request_with_fallback(reqwest::Method::POST, "/config/apps/http/servers/srv0/routes", Some(route_config.clone())).await?;
+        let response = self
+            .request_with_fallback(
+                reqwest::Method::POST,
+                "/config/apps/http/servers/srv0/routes",
+                Some(route_config.clone()),
+            )
+            .await?;
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
@@ -283,7 +312,9 @@ impl CaddyService {
 
     /// Ensure srv0 exists in Caddy JSON config
     async fn ensure_srv0(&self) -> Result<()> {
-        let resp = self.request_with_fallback(reqwest::Method::GET, "/config/apps/http/servers/srv0", None).await;
+        let resp = self
+            .request_with_fallback(reqwest::Method::GET, "/config/apps/http/servers/srv0", None)
+            .await;
 
         match resp {
             Ok(r) if r.status().is_success() => return Ok(()),
@@ -294,7 +325,13 @@ impl CaddyService {
                     "routes": []
                 });
 
-                let init_resp = self.request_with_fallback(reqwest::Method::PUT, "/config/apps/http/servers/srv0", Some(base_config.clone())).await?;
+                let init_resp = self
+                    .request_with_fallback(
+                        reqwest::Method::PUT,
+                        "/config/apps/http/servers/srv0",
+                        Some(base_config.clone()),
+                    )
+                    .await?;
 
                 if !init_resp.status().is_success() {
                     // If PUT fails, try PUT to apps/http first
@@ -303,7 +340,12 @@ impl CaddyService {
                             "srv0": base_config
                         }
                     });
-                    self.request_with_fallback(reqwest::Method::PUT, "/config/apps/http", Some(http_config)).await?;
+                    self.request_with_fallback(
+                        reqwest::Method::PUT,
+                        "/config/apps/http",
+                        Some(http_config),
+                    )
+                    .await?;
                 }
             }
         }
@@ -315,7 +357,13 @@ impl CaddyService {
         let mut found_any = false;
 
         loop {
-            let response = self.request_with_fallback(reqwest::Method::GET, "/config/apps/http/servers/srv0/routes", None).await?;
+            let response = self
+                .request_with_fallback(
+                    reqwest::Method::GET,
+                    "/config/apps/http/servers/srv0/routes",
+                    None,
+                )
+                .await?;
 
             if !response.status().is_success() {
                 break;
@@ -343,7 +391,12 @@ impl CaddyService {
             }
 
             if let Some(index) = index_to_remove {
-                self.request_with_fallback(reqwest::Method::DELETE, &format!("/config/apps/http/servers/srv0/routes/{}", index), None).await?;
+                self.request_with_fallback(
+                    reqwest::Method::DELETE,
+                    &format!("/config/apps/http/servers/srv0/routes/{}", index),
+                    None,
+                )
+                .await?;
                 found_any = true;
             } else {
                 break;
@@ -400,7 +453,13 @@ impl CaddyService {
             ]
         });
 
-        let response = self.request_with_fallback(reqwest::Method::POST, "/config/apps/http/servers/srv0/routes", Some(route_config)).await?;
+        let response = self
+            .request_with_fallback(
+                reqwest::Method::POST,
+                "/config/apps/http/servers/srv0/routes",
+                Some(route_config),
+            )
+            .await?;
 
         if !response.status().is_success() {
             let error_text = response.status().to_string();

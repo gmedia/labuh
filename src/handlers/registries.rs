@@ -15,7 +15,8 @@ async fn list_credentials(
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<RegistryCredentialResponse>>> {
     let credentials = registry_service.list_credentials(&current_user.id).await?;
-    let responses: Vec<RegistryCredentialResponse> = credentials.into_iter().map(Into::into).collect();
+    let responses: Vec<RegistryCredentialResponse> =
+        credentials.into_iter().map(Into::into).collect();
     Ok(Json(responses))
 }
 
@@ -41,7 +42,9 @@ async fn remove_credential(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>> {
-    registry_service.remove_credential(&id, &current_user.id).await?;
+    registry_service
+        .remove_credential(&id, &current_user.id)
+        .await?;
     Ok(Json(serde_json::json!({ "status": "removed" })))
 }
 

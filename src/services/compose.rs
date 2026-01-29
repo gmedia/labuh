@@ -105,23 +105,8 @@ pub struct ParsedService {
 
 /// Blocked host paths that should never be mounted
 const BLOCKED_HOST_PATHS: &[&str] = &[
-    "/",
-    "/bin",
-    "/boot",
-    "/dev",
-    "/etc",
-    "/home",
-    "/lib",
-    "/lib64",
-    "/opt",
-    "/proc",
-    "/root",
-    "/run",
-    "/sbin",
-    "/sys",
-    "/tmp",
-    "/usr",
-    "/var",
+    "/", "/bin", "/boot", "/dev", "/etc", "/home", "/lib", "/lib64", "/opt", "/proc", "/root",
+    "/run", "/sbin", "/sys", "/tmp", "/usr", "/var",
 ];
 
 /// Security validation result
@@ -155,7 +140,7 @@ pub fn validate_volume_security(volumes: &[String]) -> Result<Vec<String>> {
         // Check for root mount
         if host_path == "/" {
             return Err(AppError::Validation(
-                "Mounting root filesystem (/) is not allowed".to_string()
+                "Mounting root filesystem (/) is not allowed".to_string(),
             ));
         }
 
@@ -296,9 +281,21 @@ pub fn service_to_container_request(
     CreateContainerRequest {
         name: format!("{}-{}", stack_name, service.name),
         image: service.image.clone(),
-        env: if service.env.is_empty() { None } else { Some(service.env.clone()) },
-        ports: if service.ports.is_empty() { None } else { Some(service.ports.clone()) },
-        volumes: if service.volumes.is_empty() { None } else { Some(service.volumes.clone()) },
+        env: if service.env.is_empty() {
+            None
+        } else {
+            Some(service.env.clone())
+        },
+        ports: if service.ports.is_empty() {
+            None
+        } else {
+            Some(service.ports.clone())
+        },
+        volumes: if service.volumes.is_empty() {
+            None
+        } else {
+            Some(service.volumes.clone())
+        },
         network: Some("labuh-network".to_string()),
         labels: Some(labels),
     }

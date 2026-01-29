@@ -17,9 +17,15 @@ async fn list_deployment_logs(
     Path(stack_id): Path<String>,
 ) -> Result<Json<Vec<DeploymentLogResponse>>> {
     // Verify user owns this stack
-    state.stack_service.get_stack(&stack_id, &current_user.id).await?;
+    state
+        .stack_service
+        .get_stack(&stack_id, &current_user.id)
+        .await?;
 
-    let logs = state.deployment_log_service.list_by_stack(&stack_id, 20).await?;
+    let logs = state
+        .deployment_log_service
+        .list_by_stack(&stack_id, 20)
+        .await?;
     let response: Vec<DeploymentLogResponse> = logs.into_iter().map(Into::into).collect();
     Ok(Json(response))
 }

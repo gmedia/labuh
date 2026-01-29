@@ -16,8 +16,7 @@
 		Sun,
 		Moon,
 		Ship,
-		Terminal,
-		Book
+		Terminal
 	} from '@lucide/svelte';
 
 	let { children } = $props();

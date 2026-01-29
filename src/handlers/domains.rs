@@ -8,8 +8,8 @@ use std::sync::Arc;
 use crate::error::Result;
 use crate::middleware::auth::CurrentUser;
 use crate::models::{CreateDomain, DomainResponse};
-use crate::services::DomainService;
 use crate::services::domain::DnsVerificationResult;
+use crate::services::DomainService;
 
 async fn list_domains(
     State(domain_service): State<Arc<DomainService>>,
@@ -30,7 +30,12 @@ async fn add_domain(
     let container_port = request.container_port.unwrap_or(80);
 
     let domain = domain_service
-        .add_domain(&stack_id, &request.domain, &request.container_name, container_port)
+        .add_domain(
+            &stack_id,
+            &request.domain,
+            &request.container_name,
+            container_port,
+        )
         .await?;
     Ok(Json(domain.into()))
 }

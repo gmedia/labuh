@@ -8,9 +8,9 @@ use std::sync::Arc;
 use crate::error::Result;
 use crate::middleware::auth::CurrentUser;
 use crate::models::{CreateStack, StackResponse};
-use crate::services::StackService;
 use crate::services::container::ContainerInfo;
 use crate::services::stack::{StackHealth, StackLogEntry};
+use crate::services::StackService;
 
 async fn list_stacks(
     State(stack_service): State<Arc<StackService>>,
@@ -35,7 +35,9 @@ async fn create_stack(
     Extension(current_user): Extension<CurrentUser>,
     Json(request): Json<CreateStack>,
 ) -> Result<Json<StackResponse>> {
-    let stack = stack_service.create_stack(&request.name, &request.compose_content, &current_user.id).await?;
+    let stack = stack_service
+        .create_stack(&request.name, &request.compose_content, &current_user.id)
+        .await?;
     Ok(Json(stack.into()))
 }
 
@@ -82,7 +84,9 @@ async fn regenerate_webhook_token(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>> {
-    let token = stack_service.regenerate_webhook_token(&id, &current_user.id).await?;
+    let token = stack_service
+        .regenerate_webhook_token(&id, &current_user.id)
+        .await?;
     Ok(Json(serde_json::json!({ "token": token })))
 }
 
@@ -91,7 +95,9 @@ async fn get_stack_health(
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<String>,
 ) -> Result<Json<StackHealth>> {
-    let health = stack_service.get_stack_health(&id, &current_user.id).await?;
+    let health = stack_service
+        .get_stack_health(&id, &current_user.id)
+        .await?;
     Ok(Json(health))
 }
 
@@ -106,7 +112,9 @@ async fn get_stack_logs(
     Path(id): Path<String>,
     Query(query): Query<LogsQuery>,
 ) -> Result<Json<Vec<StackLogEntry>>> {
-    let logs = stack_service.get_stack_logs(&id, &current_user.id, query.tail).await?;
+    let logs = stack_service
+        .get_stack_logs(&id, &current_user.id, query.tail)
+        .await?;
     Ok(Json(logs))
 }
 
@@ -121,7 +129,9 @@ async fn update_stack_compose(
     Path(id): Path<String>,
     Json(request): Json<UpdateStackCompose>,
 ) -> Result<Json<serde_json::Value>> {
-    stack_service.update_stack_compose(&id, &request.compose_content, &current_user.id).await?;
+    stack_service
+        .update_stack_compose(&id, &request.compose_content, &current_user.id)
+        .await?;
     Ok(Json(serde_json::json!({ "status": "updated" })))
 }
 
@@ -141,7 +151,9 @@ async fn redeploy_service(
     Extension(current_user): Extension<CurrentUser>,
     Path((stack_id, service_name)): Path<(String, String)>,
 ) -> Result<Json<serde_json::Value>> {
-    stack_service.redeploy_service(&stack_id, &service_name, &current_user.id).await?;
+    stack_service
+        .redeploy_service(&stack_id, &service_name, &current_user.id)
+        .await?;
     Ok(Json(serde_json::json!({ "status": "redeployed" })))
 }
 
@@ -157,7 +169,10 @@ pub fn stack_routes(stack_service: Arc<StackService>) -> Router {
         .route("/{id}/start", post(start_stack))
         .route("/{id}/stop", post(stop_stack))
         .route("/{id}/redeploy", post(redeploy_stack))
-        .route("/{id}/services/{service_name}/redeploy", post(redeploy_service))
+        .route(
+            "/{id}/services/{service_name}/redeploy",
+            post(redeploy_service),
+        )
         .route("/{id}/compose", axum::routing::put(update_stack_compose))
         .route("/{id}/webhook/regenerate", post(regenerate_webhook_token))
         .with_state(stack_service)

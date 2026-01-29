@@ -1,9 +1,9 @@
+use chrono::Utc;
 use sqlx::SqlitePool;
 use uuid::Uuid;
-use chrono::Utc;
 
 use crate::error::Result;
-use crate::models::deployment_log::{DeploymentLog, CreateDeploymentLog};
+use crate::models::deployment_log::{CreateDeploymentLog, DeploymentLog};
 
 pub struct DeploymentLogService {
     pool: SqlitePool,
@@ -35,19 +35,17 @@ impl DeploymentLogService {
     }
 
     pub async fn get(&self, id: &str) -> Result<DeploymentLog> {
-        let log = sqlx::query_as::<_, DeploymentLog>(
-            "SELECT * FROM deployment_logs WHERE id = ?"
-        )
-        .bind(id)
-        .fetch_one(&self.pool)
-        .await?;
+        let log = sqlx::query_as::<_, DeploymentLog>("SELECT * FROM deployment_logs WHERE id = ?")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await?;
 
         Ok(log)
     }
 
     pub async fn list_by_stack(&self, stack_id: &str, limit: i32) -> Result<Vec<DeploymentLog>> {
         let logs = sqlx::query_as::<_, DeploymentLog>(
-            "SELECT * FROM deployment_logs WHERE stack_id = ? ORDER BY started_at DESC LIMIT ?"
+            "SELECT * FROM deployment_logs WHERE stack_id = ? ORDER BY started_at DESC LIMIT ?",
         )
         .bind(stack_id)
         .bind(limit)
@@ -57,11 +55,16 @@ impl DeploymentLogService {
         Ok(logs)
     }
 
-    pub async fn update_status(&self, id: &str, status: &str, logs: Option<&str>) -> Result<DeploymentLog> {
+    pub async fn update_status(
+        &self,
+        id: &str,
+        status: &str,
+        logs: Option<&str>,
+    ) -> Result<DeploymentLog> {
         let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
         sqlx::query(
-            "UPDATE deployment_logs SET status = ?, logs = ?, finished_at = ? WHERE id = ?"
+            "UPDATE deployment_logs SET status = ?, logs = ?, finished_at = ? WHERE id = ?",
         )
         .bind(status)
         .bind(logs)

@@ -2,9 +2,9 @@
 //!
 //! Handles labuh-network creation and container connections.
 
-use std::sync::Arc;
-use bollard::network::{CreateNetworkOptions, ConnectNetworkOptions};
 use bollard::models::EndpointSettings;
+use bollard::network::{ConnectNetworkOptions, CreateNetworkOptions};
+use std::sync::Arc;
 
 use crate::error::{AppError, Result};
 use crate::services::ContainerService;
@@ -43,7 +43,9 @@ impl NetworkService {
             ..Default::default()
         };
 
-        docker.create_network(options).await
+        docker
+            .create_network(options)
+            .await
             .map_err(|e| AppError::ContainerRuntime(format!("Failed to create network: {}", e)))?;
 
         tracing::info!("Created network: {}", LABUH_NETWORK);
@@ -67,7 +69,11 @@ impl NetworkService {
             Err(e) => {
                 // Ignore if already connected (status 403 Conflict)
                 if e.to_string().contains("403") || e.to_string().contains("already exists") {
-                    tracing::debug!("Container {} already connected to {}", container_id, LABUH_NETWORK);
+                    tracing::debug!(
+                        "Container {} already connected to {}",
+                        container_id,
+                        LABUH_NETWORK
+                    );
                     Ok(())
                 } else {
                     Err(AppError::ContainerRuntime(format!(
@@ -101,15 +107,18 @@ impl NetworkService {
     pub async fn disconnect_container(&self, container_id: &str) -> Result<()> {
         let docker = &self.container_service.docker;
 
-        docker.disconnect_network(
-            LABUH_NETWORK,
-            bollard::network::DisconnectNetworkOptions {
-                container: container_id,
-                force: false,
-            }
-        ).await.map_err(|e| AppError::ContainerRuntime(format!(
-            "Failed to disconnect container: {}", e
-        )))?;
+        docker
+            .disconnect_network(
+                LABUH_NETWORK,
+                bollard::network::DisconnectNetworkOptions {
+                    container: container_id,
+                    force: false,
+                },
+            )
+            .await
+            .map_err(|e| {
+                AppError::ContainerRuntime(format!("Failed to disconnect container: {}", e))
+            })?;
 
         Ok(())
     }
@@ -119,10 +128,13 @@ impl NetworkService {
     pub async fn list_connected_containers(&self) -> Result<Vec<String>> {
         let docker = &self.container_service.docker;
 
-        let network = docker.inspect_network::<String>(LABUH_NETWORK, None).await
+        let network = docker
+            .inspect_network::<String>(LABUH_NETWORK, None)
+            .await
             .map_err(|e| AppError::ContainerRuntime(format!("Failed to inspect network: {}", e)))?;
 
-        let containers = network.containers
+        let containers = network
+            .containers
             .unwrap_or_default()
             .keys()
             .cloned()
@@ -133,7 +145,11 @@ impl NetworkService {
 
     /// Connect a container to labuh-network with DNS aliases
     /// This enables internal DNS resolution like: container-name.labuh, service-name.stack-name.labuh
-    pub async fn connect_container_with_alias(&self, container_id: &str, aliases: Vec<String>) -> Result<()> {
+    pub async fn connect_container_with_alias(
+        &self,
+        container_id: &str,
+        aliases: Vec<String>,
+    ) -> Result<()> {
         let docker = &self.container_service.docker;
 
         let endpoint_config = EndpointSettings {
@@ -146,19 +162,32 @@ impl NetworkService {
             endpoint_config,
         };
 
-        docker.connect_network(LABUH_NETWORK, config).await
-            .map_err(|e| AppError::ContainerRuntime(format!(
-                "Failed to connect container {} with aliases {:?}: {}",
-                container_id, aliases, e
-            )))?;
+        docker
+            .connect_network(LABUH_NETWORK, config)
+            .await
+            .map_err(|e| {
+                AppError::ContainerRuntime(format!(
+                    "Failed to connect container {} with aliases {:?}: {}",
+                    container_id, aliases, e
+                ))
+            })?;
 
-        tracing::info!("Connected container {} to {} with aliases: {:?}", container_id, LABUH_NETWORK, aliases);
+        tracing::info!(
+            "Connected container {} to {} with aliases: {:?}",
+            container_id,
+            LABUH_NETWORK,
+            aliases
+        );
         Ok(())
     }
 
     /// Generate DNS aliases for a container
     /// Returns aliases like: ["myapp", "myapp.labuh", "web.mystack.labuh"]
-    pub fn generate_container_aliases(container_name: &str, stack_name: Option<&str>, service_name: Option<&str>) -> Vec<String> {
+    pub fn generate_container_aliases(
+        container_name: &str,
+        stack_name: Option<&str>,
+        service_name: Option<&str>,
+    ) -> Vec<String> {
         let mut aliases = Vec::new();
 
         // Short name (container name without leading /)
@@ -177,4 +206,3 @@ impl NetworkService {
         aliases
     }
 }
-

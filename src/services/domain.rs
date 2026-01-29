@@ -22,7 +22,7 @@ impl DomainService {
     /// List all domains for a stack
     pub async fn list_domains(&self, stack_id: &str) -> Result<Vec<Domain>> {
         let domains = sqlx::query_as::<_, Domain>(
-            "SELECT * FROM domains WHERE stack_id = ? ORDER BY created_at DESC"
+            "SELECT * FROM domains WHERE stack_id = ? ORDER BY created_at DESC",
         )
         .bind(stack_id)
         .fetch_all(&self.db)
@@ -46,7 +46,10 @@ impl DomainService {
             .await?;
 
         if existing.is_some() {
-            return Err(AppError::Conflict(format!("Domain '{}' already exists", domain)));
+            return Err(AppError::Conflict(format!(
+                "Domain '{}' already exists",
+                domain
+            )));
         }
 
         // Create domain record
@@ -71,7 +74,11 @@ impl DomainService {
         .await?;
 
         // Add route to Caddy
-        if let Err(e) = self.caddy_service.add_route(domain, &container_upstream).await {
+        if let Err(e) = self
+            .caddy_service
+            .add_route(domain, &container_upstream)
+            .await
+        {
             // Rollback domain creation
             sqlx::query("DELETE FROM domains WHERE id = ?")
                 .bind(&id)
@@ -92,14 +99,13 @@ impl DomainService {
     /// Remove a domain
     pub async fn remove_domain(&self, stack_id: &str, domain: &str) -> Result<()> {
         // Check domain belongs to stack
-        let domain_record = sqlx::query_as::<_, Domain>(
-            "SELECT * FROM domains WHERE domain = ? AND stack_id = ?"
-        )
-        .bind(domain)
-        .bind(stack_id)
-        .fetch_optional(&self.db)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Domain not found".to_string()))?;
+        let domain_record =
+            sqlx::query_as::<_, Domain>("SELECT * FROM domains WHERE domain = ? AND stack_id = ?")
+                .bind(domain)
+                .bind(stack_id)
+                .fetch_optional(&self.db)
+                .await?
+                .ok_or_else(|| AppError::NotFound("Domain not found".to_string()))?;
 
         // Remove from Caddy (ignore errors if route doesn't exist)
         let _ = self.caddy_service.remove_route(&domain_record.domain).await;
@@ -114,11 +120,16 @@ impl DomainService {
     }
 
     /// Verify domain DNS - checks if domain resolves to expected IP or has valid CNAME
-    pub async fn verify_domain(&self, domain: &str, expected_ip: Option<&str>) -> Result<DnsVerificationResult> {
-        use hickory_resolver::TokioAsyncResolver;
+    pub async fn verify_domain(
+        &self,
+        domain: &str,
+        expected_ip: Option<&str>,
+    ) -> Result<DnsVerificationResult> {
         use hickory_resolver::config::{ResolverConfig, ResolverOpts};
+        use hickory_resolver::TokioAsyncResolver;
 
-        let resolver = TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default());
+        let resolver =
+            TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default());
 
         // Try A record lookup
         let a_records = match resolver.lookup_ip(domain).await {
@@ -127,8 +138,12 @@ impl DomainService {
         };
 
         // Try CNAME lookup
-        let cname_records = match resolver.lookup(domain, hickory_resolver::proto::rr::RecordType::CNAME).await {
-            Ok(lookup) => lookup.iter()
+        let cname_records = match resolver
+            .lookup(domain, hickory_resolver::proto::rr::RecordType::CNAME)
+            .await
+        {
+            Ok(lookup) => lookup
+                .iter()
                 .filter_map(|r| r.clone().into_cname().ok())
                 .map(|cname| cname.to_string().trim_end_matches('.').to_string())
                 .collect::<Vec<_>>(),
@@ -165,7 +180,11 @@ impl DomainService {
 
         for domain in domains {
             let container_upstream = format!("{}:{}", domain.container_name, domain.container_port);
-            if let Err(e) = self.caddy_service.add_route(&domain.domain, &container_upstream).await {
+            if let Err(e) = self
+                .caddy_service
+                .add_route(&domain.domain, &container_upstream)
+                .await
+            {
                 tracing::error!("Failed to sync route for domain {}: {}", domain.domain, e);
             }
         }

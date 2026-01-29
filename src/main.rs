@@ -16,9 +16,8 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use crate::config::Config;
 use crate::handlers::auth::protected_auth_routes;
 use crate::handlers::{
-    auth_routes, container_routes, deployment_log_routes, domain_routes,
-    environment_routes, health_routes, image_routes,
-    registry_routes, stack_routes, system_routes,
+    auth_routes, container_routes, deployment_log_routes, domain_routes, environment_routes,
+    health_routes, image_routes, registry_routes, stack_routes, system_routes,
 };
 use crate::middleware::auth_middleware;
 use crate::services::{
@@ -89,7 +88,10 @@ async fn main() -> anyhow::Result<()> {
         // Bootstrap Caddy
         tracing::info!("Bootstrapping Caddy...");
         if let Err(e) = caddy_service.bootstrap(container_svc).await {
-            tracing::error!("Failed to bootstrap Caddy: {}. Ensure port 80/443 are free.", e);
+            tracing::error!(
+                "Failed to bootstrap Caddy: {}. Ensure port 80/443 are free.",
+                e
+            );
         }
 
         // Connect Caddy to labuh-network
@@ -138,15 +140,25 @@ async fn main() -> anyhow::Result<()> {
         let env_service = Arc::new(crate::services::EnvironmentService::new(pool.clone()));
 
         // Create stack service
-        let stack_service = Arc::new(StackService::new(pool.clone(), container_svc.clone(), env_service.clone()));
+        let stack_service = Arc::new(StackService::new(
+            pool.clone(),
+            container_svc.clone(),
+            env_service.clone(),
+        ));
 
         protected_routes = protected_routes
             .nest("/containers", container_routes(container_svc.clone()))
             .nest("/images", image_routes(container_svc.clone()))
             .nest("/stacks", stack_routes(stack_service.clone()))
             .nest("/stacks", domain_routes(domain_service))
-            .nest("/stacks", deployment_log_routes(deployment_log_service.clone(), stack_service.clone()))
-            .nest("/stacks", environment_routes(env_service, stack_service.clone()));
+            .nest(
+                "/stacks",
+                deployment_log_routes(deployment_log_service.clone(), stack_service.clone()),
+            )
+            .nest(
+                "/stacks",
+                environment_routes(env_service, stack_service.clone()),
+            );
 
         // Create webhook state and routes
         let webhook_state = handlers::webhooks::WebhookState {
@@ -156,8 +168,11 @@ async fn main() -> anyhow::Result<()> {
 
         webhook_routes = Some(
             Router::new()
-                .route("/deploy/{stack_id}/{token}", axum::routing::post(handlers::webhooks::trigger_deploy))
-                .with_state(webhook_state)
+                .route(
+                    "/deploy/{stack_id}/{token}",
+                    axum::routing::post(handlers::webhooks::trigger_deploy),
+                )
+                .with_state(webhook_state),
         );
     }
 

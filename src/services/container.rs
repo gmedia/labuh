@@ -382,12 +382,10 @@ impl ContainerService {
         };
 
         // Build auth config if credentials provided
-        let auth = credentials.map(|(username, password)| {
-            bollard::auth::DockerCredentials {
-                username: Some(username),
-                password: Some(password),
-                ..Default::default()
-            }
+        let auth = credentials.map(|(username, password)| bollard::auth::DockerCredentials {
+            username: Some(username),
+            password: Some(password),
+            ..Default::default()
         });
 
         let mut stream = self.docker.create_image(Some(options), None, auth);
