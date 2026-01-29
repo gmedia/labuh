@@ -45,8 +45,8 @@
 <div class="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-muted/50 p-4">
 	<Card.Root class="w-full max-w-md">
 		<Card.Header class="text-center">
-			<div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg">
-				<Ship class="h-8 w-8" />
+			<div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl overflow-hidden shadow-lg border">
+				<img src="/logo.png" alt="Labuh Logo" class="h-12 w-12 object-contain" />
 			</div>
 			<Card.Title class="text-2xl font-bold">Create an Account</Card.Title>
 			<Card.Description>Get started with Labuh today</Card.Description>
