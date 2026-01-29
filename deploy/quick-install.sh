@@ -254,7 +254,7 @@ EOF
         rm -rf "$INSTALL_DIR/Caddyfile"
     fi
 
-    if [[ ! -f "$INSTALL_DIR/Caddyfile" ]]; then
+    if [[ ! -f "$INSTALL_DIR/Caddyfile" ]] || [[ ! -s "$INSTALL_DIR/Caddyfile" ]]; then
         cat > "$INSTALL_DIR/Caddyfile" << EOF
 {
     admin 0.0.0.0:2019
