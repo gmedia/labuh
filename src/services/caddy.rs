@@ -233,7 +233,7 @@ impl CaddyService {
         // Convert Caddyfile to Caddy JSON config
         let response = self
             .client
-            .post(&format!("{}/adapt", self.admin_api_url))
+            .post(format!("{}/adapt", self.admin_api_url))
             .header("Content-Type", "text/caddyfile")
             .body(caddyfile_content.to_string())
             .send()
@@ -414,6 +414,7 @@ impl CaddyService {
     }
 
     /// Add a route with Basic Auth protection
+    #[allow(dead_code)]
     pub async fn add_route_with_basic_auth(
         &self,
         domain: &str,

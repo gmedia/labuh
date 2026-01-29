@@ -145,6 +145,7 @@ impl NetworkService {
 
     /// Connect a container to labuh-network with DNS aliases
     /// This enables internal DNS resolution like: container-name.labuh, service-name.stack-name.labuh
+    #[allow(dead_code)]
     pub async fn connect_container_with_alias(
         &self,
         container_id: &str,
@@ -181,8 +182,9 @@ impl NetworkService {
         Ok(())
     }
 
-    /// Generate DNS aliases for a container
+    /// Generate internal DNS aliases for a container
     /// Returns aliases like: ["myapp", "myapp.labuh", "web.mystack.labuh"]
+    #[allow(dead_code)]
     pub fn generate_container_aliases(
         container_name: &str,
         stack_name: Option<&str>,

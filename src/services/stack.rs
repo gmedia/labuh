@@ -124,7 +124,7 @@ impl StackService {
         // Update stack status to stopped
         sqlx::query("UPDATE stacks SET status = ?, updated_at = ? WHERE id = ?")
             .bind("stopped")
-            .bind(&Utc::now().to_rfc3339())
+            .bind(Utc::now().to_rfc3339())
             .bind(&id)
             .execute(&self.db)
             .await?;
@@ -172,7 +172,7 @@ impl StackService {
 
         sqlx::query("UPDATE stacks SET status = ?, updated_at = ? WHERE id = ?")
             .bind("running")
-            .bind(&Utc::now().to_rfc3339())
+            .bind(Utc::now().to_rfc3339())
             .bind(id)
             .execute(&self.db)
             .await?;
@@ -193,7 +193,7 @@ impl StackService {
 
         sqlx::query("UPDATE stacks SET status = ?, updated_at = ? WHERE id = ?")
             .bind("stopped")
-            .bind(&Utc::now().to_rfc3339())
+            .bind(Utc::now().to_rfc3339())
             .bind(id)
             .execute(&self.db)
             .await?;
@@ -236,7 +236,7 @@ impl StackService {
 
         sqlx::query("UPDATE stacks SET webhook_token = ?, updated_at = ? WHERE id = ?")
             .bind(&token)
-            .bind(&Utc::now().to_rfc3339())
+            .bind(Utc::now().to_rfc3339())
             .bind(id)
             .execute(&self.db)
             .await?;
@@ -255,7 +255,7 @@ impl StackService {
         // Update status to deploying
         sqlx::query("UPDATE stacks SET status = ?, updated_at = ? WHERE id = ?")
             .bind("deploying")
-            .bind(&Utc::now().to_rfc3339())
+            .bind(Utc::now().to_rfc3339())
             .bind(id)
             .execute(&self.db)
             .await?;
@@ -528,7 +528,7 @@ impl StackService {
 
         sqlx::query("UPDATE stacks SET compose_content = ?, updated_at = ? WHERE id = ?")
             .bind(compose_content)
-            .bind(&chrono::Utc::now().to_rfc3339())
+            .bind(chrono::Utc::now().to_rfc3339())
             .bind(id)
             .execute(&self.db)
             .await?;
