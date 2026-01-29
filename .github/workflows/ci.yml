@@ -2,8 +2,14 @@ name: CI
 
 on:
   push:
+    paths-ignore:
+      - 'website/**'
+      - '.github/workflows/deploy-docs.yml'
     branches: [main]
   pull_request:
+    paths-ignore:
+      - 'website/**'
+      - '.github/workflows/deploy-docs.yml'
     branches: [main]
 
 env:
