@@ -198,7 +198,8 @@ async fn main() -> anyhow::Result<()> {
         .layer(cors);
 
     // Serve frontend static files
-    let frontend_dir = std::env::var("FRONTEND_DIR").unwrap_or_else(|_| "./frontend/build".to_string());
+    let frontend_dir =
+        std::env::var("FRONTEND_DIR").unwrap_or_else(|_| "./frontend/build".to_string());
 
     let app = if std::path::Path::new(&frontend_dir).exists() {
         tracing::info!("Serving frontend from {}", frontend_dir);
@@ -206,7 +207,10 @@ async fn main() -> anyhow::Result<()> {
             .fallback(ServeFile::new(format!("{}/index.html", frontend_dir)));
         app.fallback_service(static_service)
     } else {
-        tracing::warn!("Frontend directory {} not found. Dashboard will not be available.", frontend_dir);
+        tracing::warn!(
+            "Frontend directory {} not found. Dashboard will not be available.",
+            frontend_dir
+        );
         app
     };
 
