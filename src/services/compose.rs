@@ -299,6 +299,8 @@ pub fn service_to_container_request(
         env: if service.env.is_empty() { None } else { Some(service.env.clone()) },
         ports: if service.ports.is_empty() { None } else { Some(service.ports.clone()) },
         volumes: if service.volumes.is_empty() { None } else { Some(service.volumes.clone()) },
+        network: Some("labuh-network".to_string()),
+        labels: Some(labels),
     }
 }
 

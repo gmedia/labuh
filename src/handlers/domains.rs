@@ -27,11 +27,10 @@ async fn add_domain(
     Path(stack_id): Path<String>,
     Json(request): Json<CreateDomain>,
 ) -> Result<Json<DomainResponse>> {
-    // Get stack upstream
-    let upstream = domain_service.get_stack_upstream(&stack_id).await?;
+    let container_port = request.container_port.unwrap_or(80);
 
     let domain = domain_service
-        .add_domain(&stack_id, &request.domain, &upstream)
+        .add_domain(&stack_id, &request.domain, &request.container_name, container_port)
         .await?;
     Ok(Json(domain.into()))
 }

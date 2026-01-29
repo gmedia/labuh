@@ -14,6 +14,8 @@ use crate::services::StackService;
 
 #[derive(serde::Deserialize)]
 pub struct SetEnvVar {
+    #[serde(default)]
+    pub container_name: String,
     pub key: String,
     pub value: String,
     #[serde(default)]
@@ -22,7 +24,23 @@ pub struct SetEnvVar {
 
 #[derive(serde::Deserialize)]
 pub struct BulkSetEnvVars {
-    pub vars: Vec<SetEnvVar>,
+    #[serde(default)]
+    pub container_name: String,
+    pub vars: Vec<SetEnvVarEntry>,
+}
+
+#[derive(serde::Deserialize)]
+pub struct SetEnvVarEntry {
+    pub key: String,
+    pub value: String,
+    #[serde(default)]
+    pub is_secret: bool,
+}
+
+#[derive(serde::Deserialize)]
+pub struct DeleteEnvVarQuery {
+    #[serde(default)]
+    pub container_name: String,
 }
 
 async fn list_env_vars(
@@ -47,7 +65,7 @@ async fn set_env_var(
     // Verify user owns the stack
     stack_service.get_stack(&stack_id, &current_user.id).await?;
 
-    let var = env_service.set(&stack_id, &request.key, &request.value, request.is_secret).await?;
+    let var = env_service.set(&stack_id, &request.container_name, &request.key, &request.value, request.is_secret).await?;
     Ok(Json(var.into()))
 }
 
@@ -65,7 +83,7 @@ async fn bulk_set_env_vars(
         .map(|v| (v.key, v.value, v.is_secret))
         .collect();
 
-    let results = env_service.bulk_set(&stack_id, vars).await?;
+    let results = env_service.bulk_set(&stack_id, &request.container_name, vars).await?;
     let responses: Vec<StackEnvVarResponse> = results.into_iter().map(Into::into).collect();
     Ok(Json(responses))
 }
@@ -74,11 +92,12 @@ async fn delete_env_var(
     State((env_service, stack_service)): State<(Arc<EnvironmentService>, Arc<StackService>)>,
     Extension(current_user): Extension<CurrentUser>,
     Path((stack_id, key)): Path<(String, String)>,
+    axum::extract::Query(query): axum::extract::Query<DeleteEnvVarQuery>,
 ) -> Result<Json<serde_json::Value>> {
     // Verify user owns the stack
     stack_service.get_stack(&stack_id, &current_user.id).await?;
 
-    env_service.delete(&stack_id, &key).await?;
+    env_service.delete(&stack_id, &query.container_name, &key).await?;
     Ok(Json(serde_json::json!({ "status": "deleted" })))
 }
 

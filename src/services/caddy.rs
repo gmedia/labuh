@@ -25,6 +25,32 @@ impl CaddyService {
         }
     }
 
+    /// Helper to perform requests with localhost -> caddy fallback
+    async fn request_with_fallback(&self, method: reqwest::Method, path: &str, body: Option<serde_json::Value>) -> Result<reqwest::Response> {
+        let url = format!("{}{}", self.admin_api_url, path);
+        let mut builder = self.client.request(method.clone(), &url);
+        if let Some(ref b) = body {
+            builder = builder.json(b);
+        }
+
+        let resp = builder.send().await;
+
+        match resp {
+            Ok(r) => Ok(r),
+            Err(e) if e.is_connect() && self.admin_api_url.contains("localhost") => {
+                let fallback_url = self.admin_api_url.replace("localhost", "caddy");
+                let fallback_full = format!("{}{}", fallback_url, path);
+                let mut fallback_builder = self.client.request(method, &fallback_full);
+                if let Some(ref b) = body {
+                    fallback_builder = fallback_builder.json(b);
+                }
+                fallback_builder.send().await
+                    .map_err(|e| AppError::CaddyApi(e.to_string()))
+            }
+            Err(e) => Err(AppError::CaddyApi(e.to_string())),
+        }
+    }
+
     /// Ensure Caddy container is running
     pub async fn bootstrap(&self, container_service: &crate::services::ContainerService) -> Result<()> {
         let container_name = "labuh-caddy";
@@ -34,11 +60,22 @@ impl CaddyService {
         let existing = containers.iter().find(|c| c.names.iter().any(|n| n.contains(container_name)));
 
         if let Some(c) = existing {
-            if c.state != "running" {
+            // Check if port 2019 is bound (required for Admin API)
+            let has_admin_port = c.ports.iter().any(|p| p.private_port == 2019);
+
+            if c.state == "running" && has_admin_port {
+                return Ok(());
+            }
+
+            if !has_admin_port {
+                tracing::info!("Caddy is missing admin port 2019. Recreating...");
+                let _ = container_service.stop_container(&c.id).await;
+                let _ = container_service.remove_container(&c.id, true).await;
+            } else if c.state != "running" {
                 tracing::info!("Starting existing Caddy container...");
                 container_service.start_container(&c.id).await?;
+                return Ok(());
             }
-            return Ok(());
         }
 
         tracing::info!("Creating Caddy container...");
@@ -65,6 +102,13 @@ impl CaddyService {
                 host_port: Some("443".to_string()),
             }]),
         );
+        port_bindings.insert(
+            "2019/tcp".to_string(),
+            Some(vec![bollard::models::PortBinding {
+                host_ip: Some("127.0.0.1".to_string()),
+                host_port: Some("2019".to_string()),
+            }]),
+        );
 
         // Create container config
         let config = bollard::container::Config {
@@ -77,6 +121,7 @@ impl CaddyService {
             exposed_ports: Some(HashMap::from([
                 ("80/tcp".to_string(), HashMap::new()),
                 ("443/tcp".to_string(), HashMap::new()),
+                ("2019/tcp".to_string(), HashMap::new()),
             ])),
             host_config: Some(bollard::service::HostConfig {
                 network_mode: Some("bridge".to_string()),
@@ -164,8 +209,6 @@ impl CaddyService {
     /// Reload Caddy configuration via Admin API
     #[allow(dead_code)]
     pub async fn reload_config(&self, caddyfile_content: &str) -> Result<()> {
-        let url = format!("{}/load", self.admin_api_url);
-
         // Convert Caddyfile to Caddy JSON config
         let response = self
             .client
@@ -190,14 +233,7 @@ impl CaddyService {
             .map_err(|e| AppError::CaddyApi(e.to_string()))?;
 
         // Load the JSON config
-        let load_response = self
-            .client
-            .post(&url)
-            .header("Content-Type", "application/json")
-            .json(&json_config)
-            .send()
-            .await
-            .map_err(|e| AppError::CaddyApi(e.to_string()))?;
+        let load_response = self.request_with_fallback(reqwest::Method::POST, "/load", Some(json_config)).await?;
 
         if !load_response.status().is_success() {
             let error_text = load_response.text().await.unwrap_or_default();
@@ -213,6 +249,9 @@ impl CaddyService {
 
     /// Add a new route dynamically
     pub async fn add_route(&self, domain: &str, upstream: &str) -> Result<()> {
+        // Ensure srv0 structure exists first
+        self.ensure_srv0().await?;
+
         let route_config = serde_json::json!({
             "match": [{
                 "host": [domain]
@@ -230,14 +269,7 @@ impl CaddyService {
             self.admin_api_url
         );
 
-        let response = self
-            .client
-            .post(&url)
-            .header("Content-Type", "application/json")
-            .json(&route_config)
-            .send()
-            .await
-            .map_err(|e| AppError::CaddyApi(e.to_string()))?;
+        let response = self.request_with_fallback(reqwest::Method::POST, "/config/apps/http/servers/srv0/routes", Some(route_config.clone())).await?;
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
@@ -251,20 +283,38 @@ impl CaddyService {
         Ok(())
     }
 
+    /// Ensure srv0 exists in Caddy JSON config
+    async fn ensure_srv0(&self) -> Result<()> {
+        let resp = self.request_with_fallback(reqwest::Method::GET, "/config/apps/http/servers/srv0", None).await;
+
+        match resp {
+            Ok(r) if r.status().is_success() => return Ok(()),
+            _ => {
+                // Initialize basic srv0 if it doesn't exist
+                let base_config = serde_json::json!({
+                    "listen": [":80"],
+                    "routes": []
+                });
+
+                let init_resp = self.request_with_fallback(reqwest::Method::PUT, "/config/apps/http/servers/srv0", Some(base_config.clone())).await?;
+
+                if !init_resp.status().is_success() {
+                    // If PUT fails, try PUT to apps/http first
+                    let http_config = serde_json::json!({
+                        "servers": {
+                            "srv0": base_config
+                        }
+                    });
+                    self.request_with_fallback(reqwest::Method::PUT, "/config/apps/http", Some(http_config)).await?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Remove a route by domain
     pub async fn remove_route(&self, domain: &str) -> Result<()> {
-        // Get current config first
-        let url = format!(
-            "{}/config/apps/http/servers/srv0/routes",
-            self.admin_api_url
-        );
-
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .map_err(|e| AppError::CaddyApi(e.to_string()))?;
+        let response = self.request_with_fallback(reqwest::Method::GET, "/config/apps/http/servers/srv0/routes", None).await?;
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
@@ -288,13 +338,7 @@ impl CaddyService {
                         .map(|arr| arr.iter().any(|h| h.as_str() == Some(domain)))
                         .unwrap_or(false)
                     {
-                        let delete_url = format!("{}/{}", url, index);
-                        self.client
-                            .delete(&delete_url)
-                            .send()
-                            .await
-                            .map_err(|e| AppError::CaddyApi(e.to_string()))?;
-
+                        self.request_with_fallback(reqwest::Method::DELETE, &format!("/config/apps/http/servers/srv0/routes/{}", index), None).await?;
                         tracing::info!("Removed route for domain: {}", domain);
                         return Ok(());
                     }
@@ -316,7 +360,8 @@ impl CaddyService {
         username: &str,
         password_hash: &str,
     ) -> Result<()> {
-        // Caddy expects bcrypt-hashed passwords for basic auth
+        self.ensure_srv0().await?;
+
         let route_config = serde_json::json!({
             "match": [{
                 "host": [domain]
@@ -326,10 +371,12 @@ impl CaddyService {
                     "handler": "authentication",
                     "providers": {
                         "http_basic": {
-                            "accounts": [{
-                                "username": username,
-                                "password": password_hash
-                            }],
+                            "accounts": [
+                                {
+                                    "username": username,
+                                    "password": password_hash
+                                }
+                            ],
                             "hash": {
                                 "algorithm": "bcrypt"
                             }
@@ -345,29 +392,17 @@ impl CaddyService {
             ]
         });
 
-        let url = format!(
-            "{}/config/apps/http/servers/srv0/routes",
-            self.admin_api_url
-        );
-
-        let response = self
-            .client
-            .post(&url)
-            .header("Content-Type", "application/json")
-            .json(&route_config)
-            .send()
-            .await
-            .map_err(|e| AppError::CaddyApi(e.to_string()))?;
+        let response = self.request_with_fallback(reqwest::Method::POST, "/config/apps/http/servers/srv0/routes", Some(route_config)).await?;
 
         if !response.status().is_success() {
-            let error_text = response.text().await.unwrap_or_default();
+            let error_text = response.status().to_string();
             return Err(AppError::CaddyApi(format!(
-                "Failed to add authenticated route: {}",
+                "Failed to add route with basic auth: {}",
                 error_text
             )));
         }
 
-        tracing::info!("Added authenticated route: {} -> {} (user: {})", domain, upstream, username);
+        tracing::info!("Added route with basic auth: {} -> {}", domain, upstream);
         Ok(())
     }
 }

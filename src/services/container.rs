@@ -20,6 +20,7 @@ pub struct ContainerInfo {
     pub status: String,
     pub ports: Vec<PortMapping>,
     pub created: i64,
+    pub labels: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -67,6 +68,8 @@ pub struct CreateContainerRequest {
     pub env: Option<Vec<String>>,
     pub ports: Option<HashMap<String, String>>,
     pub volumes: Option<HashMap<String, String>>,
+    pub network: Option<String>,
+    pub labels: Option<HashMap<String, String>>,
 }
 
 pub struct ContainerService {
@@ -120,6 +123,7 @@ impl ContainerService {
                     })
                     .collect(),
                 created: c.created.unwrap_or(0),
+                labels: c.labels.unwrap_or_default(),
             })
             .collect())
     }
@@ -171,6 +175,7 @@ impl ContainerService {
                 Some(port_bindings)
             },
             binds,
+            network_mode: request.network,
             ..Default::default()
         };
 
@@ -183,6 +188,7 @@ impl ContainerService {
                 Some(exposed_ports)
             },
             host_config: Some(host_config),
+            labels: request.labels,
             ..Default::default()
         };
 

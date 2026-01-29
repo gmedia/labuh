@@ -136,6 +136,15 @@ async fn redeploy_stack(
     Ok(Json(serde_json::json!({ "status": "redeployed" })))
 }
 
+async fn redeploy_service(
+    State(stack_service): State<Arc<StackService>>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path((stack_id, service_name)): Path<(String, String)>,
+) -> Result<Json<serde_json::Value>> {
+    stack_service.redeploy_service(&stack_id, &service_name, &current_user.id).await?;
+    Ok(Json(serde_json::json!({ "status": "redeployed" })))
+}
+
 pub fn stack_routes(stack_service: Arc<StackService>) -> Router {
     Router::new()
         .route("/", get(list_stacks))
@@ -148,6 +157,7 @@ pub fn stack_routes(stack_service: Arc<StackService>) -> Router {
         .route("/{id}/start", post(start_stack))
         .route("/{id}/stop", post(stop_stack))
         .route("/{id}/redeploy", post(redeploy_stack))
+        .route("/{id}/services/{service_name}/redeploy", post(redeploy_service))
         .route("/{id}/compose", axum::routing::put(update_stack_compose))
         .route("/{id}/webhook/regenerate", post(regenerate_webhook_token))
         .with_state(stack_service)

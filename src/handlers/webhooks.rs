@@ -19,8 +19,14 @@ pub struct WebhookState {
     pub deployment_log_service: Arc<DeploymentLogService>,
 }
 
+#[derive(serde::Deserialize)]
+pub struct WebhookQuery {
+    pub service: Option<String>,
+}
+
 pub async fn trigger_deploy(
     State(state): State<WebhookState>,
+    axum::extract::Query(query): axum::extract::Query<WebhookQuery>,
     Path((stack_id, token)): Path<(String, String)>,
 ) -> Result<impl IntoResponse> {
     // 1. Validate token and get stack
@@ -32,9 +38,13 @@ pub async fn trigger_deploy(
         trigger_type: "webhook".to_string(),
     }).await?;
 
-    // 3. Trigger deployment (redeploy stack)
-    // This will pull latest images and recreate containers
-    let result = state.stack_service.redeploy_stack(&stack.id).await;
+    // 3. Trigger deployment
+    // If service query param is present, only redeploy that specific service
+    let result = if let Some(service_name) = &query.service {
+        state.stack_service.redeploy_service(&stack.id, service_name, &stack.user_id).await
+    } else {
+        state.stack_service.redeploy_stack(&stack.id).await
+    };
 
     match result {
         Ok(_) => {

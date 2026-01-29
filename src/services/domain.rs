@@ -31,8 +31,14 @@ impl DomainService {
         Ok(domains)
     }
 
-    /// Add a domain to a stack
-    pub async fn add_domain(&self, stack_id: &str, domain: &str, container_upstream: &str) -> Result<Domain> {
+    /// Add a domain to a stack with routing to a specific container
+    pub async fn add_domain(
+        &self,
+        stack_id: &str,
+        domain: &str,
+        container_name: &str,
+        container_port: i32,
+    ) -> Result<Domain> {
         // Check if domain already exists
         let existing = sqlx::query_as::<_, Domain>("SELECT * FROM domains WHERE domain = ?")
             .bind(domain)
@@ -45,21 +51,27 @@ impl DomainService {
 
         // Create domain record
         let id = Uuid::new_v4().to_string();
-        let _now = Utc::now().to_rfc3339();
+        let now = Utc::now().to_rfc3339();
+
+        // Build the upstream address (container_name:port)
+        let container_upstream = format!("{}:{}", container_name, container_port);
 
         sqlx::query(
-            "INSERT INTO domains (id, stack_id, domain, ssl_enabled, verified, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO domains (id, stack_id, container_name, container_port, domain, ssl_enabled, verified, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         )
         .bind(&id)
         .bind(stack_id)
+        .bind(container_name)
+        .bind(container_port)
         .bind(domain)
         .bind(true)
         .bind(false)
+        .bind(&now)
         .execute(&self.db)
         .await?;
 
         // Add route to Caddy
-        if let Err(e) = self.caddy_service.add_route(domain, container_upstream).await {
+        if let Err(e) = self.caddy_service.add_route(domain, &container_upstream).await {
             // Rollback domain creation
             sqlx::query("DELETE FROM domains WHERE id = ?")
                 .bind(&id)
@@ -99,26 +111,6 @@ impl DomainService {
             .await?;
 
         Ok(())
-    }
-
-    /// Get stack upstream address (container_name:port)
-    pub async fn get_stack_upstream(&self, stack_id: &str) -> Result<String> {
-        // For stacks, we look at the first service in the compose file or use stack name
-        #[derive(sqlx::FromRow)]
-        struct StackInfo {
-            name: String,
-        }
-
-        let stack = sqlx::query_as::<_, StackInfo>(
-            "SELECT name FROM stacks WHERE id = ?"
-        )
-        .bind(stack_id)
-        .fetch_optional(&self.db)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Stack not found".to_string()))?;
-
-        // Default to port 80, stack name as upstream
-        Ok(format!("{}:80", stack.name))
     }
 
     /// Verify domain DNS - checks if domain resolves to expected IP or has valid CNAME
@@ -162,49 +154,6 @@ impl DomainService {
             a_records,
             cname_records,
         })
-    }
-
-    /// Generate a subdomain for a stack based on naming convention
-    pub fn generate_subdomain(stack_name: &str, base_domain: &str) -> String {
-        // Sanitize stack name: lowercase, replace spaces with hyphens, remove special chars
-        let sanitized: String = stack_name
-            .to_lowercase()
-            .chars()
-            .map(|c| if c.is_alphanumeric() { c } else { '-' })
-            .collect();
-
-        // Remove consecutive hyphens and trim
-        let mut result = String::new();
-        let mut prev_hyphen = false;
-        for c in sanitized.chars() {
-            if c == '-' {
-                if !prev_hyphen && !result.is_empty() {
-                    result.push(c);
-                    prev_hyphen = true;
-                }
-            } else {
-                result.push(c);
-                prev_hyphen = false;
-            }
-        }
-        result = result.trim_matches('-').to_string();
-
-        format!("{}.{}", result, base_domain)
-    }
-
-    /// Create an auto-generated subdomain for a stack
-    pub async fn create_stack_subdomain(&self, stack_id: &str, stack_name: &str, base_domain: &str) -> Result<Domain> {
-        let subdomain = Self::generate_subdomain(stack_name, base_domain);
-        let upstream = self.get_stack_upstream(stack_id).await?;
-
-        // Check if subdomain already exists - if so, return existing
-        if let Ok(existing) = self.list_domains(stack_id).await {
-            if let Some(domain) = existing.iter().find(|d| d.domain == subdomain) {
-                return Ok(domain.clone());
-            }
-        }
-
-        self.add_domain(stack_id, &subdomain, &upstream).await
     }
 }
 

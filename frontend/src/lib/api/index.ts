@@ -75,6 +75,7 @@ export interface Container {
   status: string;
   ports: { private_port: number; public_port?: number; port_type: string }[];
   created: number;
+  labels: Record<string, string>;
 }
 
 export interface ContainerStats {
@@ -147,6 +148,8 @@ export interface CreateStack {
 export interface Domain {
   id: string;
   stack_id: string;
+  container_name: string;
+  container_port: number;
   domain: string;
   ssl_enabled: boolean;
   verified: boolean;
@@ -155,6 +158,8 @@ export interface Domain {
 
 export interface CreateDomain {
   domain: string;
+  container_name: string;
+  container_port?: number;
 }
 
 export interface RegistryCredential {
@@ -197,11 +202,19 @@ export interface StackLogEntry {
 export interface EnvVar {
   id: string;
   stack_id: string;
+  container_name: string;
   key: string;
   value: string;
   is_secret: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface SetEnvVar {
+  container_name: string;
+  key: string;
+  value: string;
+  is_secret?: boolean;
 }
 
 export const api = {
@@ -357,8 +370,11 @@ export const api = {
       });
     },
 
-    redeploy: async (id: string) => {
-      return fetchApi<{ status: string }>(`/stacks/${id}/redeploy`, {
+    redeploy: async (id: string, serviceName?: string) => {
+      const url = serviceName
+        ? `/stacks/${id}/services/${serviceName}/redeploy`
+        : `/stacks/${id}/redeploy`;
+      return fetchApi<{ status: string }>(url, {
         method: "POST",
       });
     },
@@ -391,10 +407,10 @@ export const api = {
         return fetchApi<Domain[]>(`/stacks/${stackId}/domains`);
       },
 
-      add: async (stackId: string, domain: string) => {
+      add: async (stackId: string, data: CreateDomain) => {
         return fetchApi<Domain>(`/stacks/${stackId}/domains`, {
           method: "POST",
-          body: JSON.stringify({ domain }),
+          body: JSON.stringify(data),
         });
       },
 
@@ -434,31 +450,27 @@ export const api = {
         return fetchApi<EnvVar[]>(`/stacks/${stackId}/env`);
       },
 
-      set: async (
-        stackId: string,
-        key: string,
-        value: string,
-        isSecret = false,
-      ) => {
+      set: async (stackId: string, data: SetEnvVar) => {
         return fetchApi<EnvVar>(`/stacks/${stackId}/env`, {
           method: "POST",
-          body: JSON.stringify({ key, value, is_secret: isSecret }),
+          body: JSON.stringify(data),
         });
       },
 
       bulkSet: async (
         stackId: string,
         vars: { key: string; value: string; is_secret?: boolean }[],
+        containerName = "",
       ) => {
         return fetchApi<EnvVar[]>(`/stacks/${stackId}/env/bulk`, {
           method: "PUT",
-          body: JSON.stringify({ vars }),
+          body: JSON.stringify({ vars, container_name: containerName }),
         });
       },
 
-      delete: async (stackId: string, key: string) => {
+      delete: async (stackId: string, key: string, containerName = "") => {
         return fetchApi<{ status: string }>(
-          `/stacks/${stackId}/env/${encodeURIComponent(key)}`,
+          `/stacks/${stackId}/env/${encodeURIComponent(key)}?container_name=${encodeURIComponent(containerName)}`,
           {
             method: "DELETE",
           },

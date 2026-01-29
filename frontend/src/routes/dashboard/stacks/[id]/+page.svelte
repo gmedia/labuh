@@ -3,7 +3,7 @@
 	import { toast } from 'svelte-sonner';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { api, API_URL, type Stack, type Container, type Domain, type DeploymentLog, type StackHealth, type StackLogEntry, type EnvVar } from '$lib/api';
+	import { api, API_URL, type Stack, type Container, type Domain, type DeploymentLog, type StackHealth, type EnvVar } from '$lib/api';
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -12,7 +12,7 @@
 	import {
 		ArrowLeft, Play, Square, Trash2, RefreshCw, Terminal, Layers,
 		Container as ContainerIcon, FileCode, Save, CheckCircle, XCircle,
-		Globe, History, Webhook, Copy, AlertCircle, RotateCcw, Activity, Settings, Eye, EyeOff, Plus
+		Globe, History, Webhook, Copy, AlertCircle, RotateCcw, Activity, Settings, Eye, EyeOff, Plus, ExternalLink
 	} from '@lucide/svelte';
 
 	const stackId: string = $page.params.id ?? '';
@@ -23,12 +23,12 @@
 	let deployments = $state<DeploymentLog[]>([]);
 	let logs = $state<Map<string, string[]>>(new Map());
 
-	// New state for health, env vars, and stack logs
+	// New state for health and env vars
 	let health = $state<StackHealth | null>(null);
 	let envVars = $state<EnvVar[]>([]);
-	let stackLogs = $state<StackLogEntry[]>([]);
 	let newEnvKey = $state('');
 	let newEnvValue = $state('');
+	let newEnvContainer = $state(''); // empty for global
 	let newEnvSecret = $state(false);
 	let showSecrets = $state<Set<string>>(new Set());
 
@@ -41,6 +41,8 @@
 
 	let selectedContainerLogs = $state<string | null>(null);
 	let newDomain = $state('');
+	let newDomainContainer = $state('');
+	let newDomainPort = $state(80);
 	let addingDomain = $state(false);
 
 	async function loadStack() {
@@ -87,13 +89,6 @@
 		}
 	}
 
-	async function loadStackLogs() {
-		const result = await api.stacks.logs(stackId, 100);
-		if (result.data) {
-			stackLogs = result.data;
-		}
-	}
-
 	async function loadContainerLogs(containerId: string) {
 		selectedContainerLogs = containerId;
 		const result = await api.containers.logs(containerId, 100);
@@ -132,11 +127,12 @@
 		actionLoading = false;
 	}
 
-	async function redeployStack() {
+	async function redeployStack(serviceName?: string) {
 		if (!stack) return;
-		if (!confirm('Recreate all containers in this stack? This will apply any environment variable changes.')) return;
+		const msg = serviceName ? `Recreate container ${serviceName}?` : 'Recreate all containers in this stack? This will apply any environment variable changes.';
+		if (!confirm(msg)) return;
 		actionLoading = true;
-		await api.stacks.redeploy(stack.id);
+		await api.stacks.redeploy(stack.id, serviceName);
 		await Promise.all([loadStack(), loadContainers(), loadHealth()]);
 		actionLoading = false;
 	}
@@ -169,10 +165,16 @@
 	}
 
 	async function addDomain() {
-		if (!newDomain || !stack) return;
+		if (!newDomain || !newDomainContainer || !stack) return;
 		addingDomain = true;
-		await api.stacks.domains.add(stack.id, newDomain);
+		await api.stacks.domains.add(stack.id, {
+			domain: newDomain,
+			container_name: newDomainContainer,
+			container_port: newDomainPort
+		});
 		newDomain = '';
+		newDomainContainer = '';
+		newDomainPort = 80;
 		await loadDomains();
 		addingDomain = false;
 	}
@@ -191,16 +193,22 @@
 
 	async function addEnvVar() {
 		if (!stack || !newEnvKey) return;
-		await api.stacks.env.set(stack.id, newEnvKey, newEnvValue, newEnvSecret);
+		await api.stacks.env.set(stack.id, {
+			container_name: newEnvContainer,
+			key: newEnvKey,
+			value: newEnvValue,
+			is_secret: newEnvSecret
+		});
 		newEnvKey = '';
 		newEnvValue = '';
+		newEnvContainer = '';
 		newEnvSecret = false;
 		await loadEnvVars();
 	}
 
-	async function deleteEnvVar(key: string) {
-		if (!stack || !confirm(`Delete environment variable "${key}"?`)) return;
-		await api.stacks.env.delete(stack.id, key);
+	async function deleteEnvVar(key: string, containerName: string) {
+		if (!stack || !confirm(`Delete environment variable "${key}" for container "${containerName || 'Global'}"?`)) return;
+		await api.stacks.env.delete(stack.id, key, containerName);
 		await loadEnvVars();
 	}
 
@@ -247,7 +255,9 @@
 
 	const runningCount = $derived(containers.filter(c => c.state === 'running').length);
 	const stoppedCount = $derived(containers.filter(c => c.state !== 'running').length);
+	let selectedWebhookService = $state('');
 	const webhookUrl = $derived(stack?.webhook_token ? `${API_URL}/api/webhooks/deploy/${stack.id}/${stack.webhook_token}` : '');
+	const filteredWebhookUrl = $derived(selectedWebhookService ? `${webhookUrl}?service=${selectedWebhookService}` : webhookUrl);
 </script>
 
 <div class="space-y-6">
@@ -300,7 +310,7 @@
 										<Square class="h-4 w-4 mr-1" /> Stop
 									</Button>
 								{/if}
-								<Button variant="outline" size="sm" onclick={redeployStack} disabled={actionLoading} title="Recreate containers to apply changes">
+								<Button variant="outline" size="sm" onclick={() => redeployStack()} disabled={actionLoading} title="Recreate containers to apply changes">
 									<RotateCcw class="h-4 w-4 mr-1" /> Restart
 								</Button>
 								<Button variant="outline" size="sm" onclick={() => showComposeEditor = !showComposeEditor}>
@@ -401,8 +411,17 @@
 										</div>
 									</div>
 									<div class="flex items-center gap-2">
-										<Button variant="ghost" size="sm" onclick={() => loadContainerLogs(container.id)}>
+										<Button variant="ghost" size="sm" onclick={() => loadContainerLogs(container.id)} title="View Logs">
 											<Terminal class="h-4 w-4" />
+										</Button>
+										<Button
+											variant="ghost"
+											size="sm"
+											onclick={() => redeployStack(container.labels?.['labuh.service.name'] || container.names[0]?.replace(/^\//, ''))}
+											title="Redeploy Service"
+											disabled={actionLoading}
+										>
+											<RefreshCw class="h-4 w-4 {actionLoading ? 'animate-spin' : ''}" />
 										</Button>
 									</div>
 								</div>
@@ -506,25 +525,49 @@
 								<Input placeholder="value" bind:value={newEnvValue} class="flex-1 font-mono text-xs" />
 							</div>
 							<div class="flex items-center justify-between">
-								<label class="flex items-center gap-2 text-xs">
-									<input type="checkbox" bind:checked={newEnvSecret} class="rounded" />
-									Secret
-								</label>
+								<div class="flex items-center gap-3">
+									<label class="flex items-center gap-2 text-xs cursor-pointer">
+										<input type="checkbox" bind:checked={newEnvSecret} class="rounded" />
+										Secret
+									</label>
+
+									<select
+										bind:value={newEnvContainer}
+										class="h-8 rounded-md border border-input bg-background px-2 text-[10px]"
+									>
+										<option value="">Global</option>
+										{#each containers as container}
+											<option value={container.labels?.['labuh.service.name'] || container.names[0]?.replace(/^\//, '')}>
+												{container.labels?.['labuh.service.name'] || container.names[0]?.replace(/^\//, '')}
+											</option>
+										{/each}
+									</select>
+								</div>
 								<Button size="sm" variant="outline" onclick={addEnvVar}>
 									<Plus class="h-3 w-3 mr-1" /> Add
 								</Button>
 							</div>
 						</div>
 
-						<div class="space-y-1 max-h-40 overflow-y-auto">
+						<div class="space-y-1 max-h-60 overflow-y-auto">
 							{#if envVars.length === 0}
 								<p class="text-xs text-muted-foreground text-center py-2">No environment variables</p>
 							{:else}
 								{#each envVars as env}
-									<div class="flex items-center justify-between p-2 rounded border bg-background/50 text-xs">
-										<div class="flex-1 overflow-hidden">
-											<span class="font-mono font-medium">{env.key}</span>
-											<span class="text-muted-foreground mx-1">=</span>
+									<div class="flex items-center justify-between p-2 rounded border bg-background/50 text-xs gap-2">
+										<div class="flex-1 min-w-0">
+											<div class="flex items-center gap-1.5 mb-0.5">
+												<span class="font-mono font-medium truncate">{env.key}</span>
+												{#if env.container_name}
+													<span class="px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[9px]">
+														{env.container_name}
+													</span>
+												{:else}
+													<span class="px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground text-[9px]">
+														Global
+													</span>
+												{/if}
+											</div>
 											{#if env.is_secret && !showSecrets.has(env.id)}
 												<span class="text-muted-foreground">********</span>
 											{:else}
@@ -541,7 +584,7 @@
 													{/if}
 												</Button>
 											{/if}
-											<Button variant="ghost" size="icon" class="h-5 w-5 text-destructive" onclick={() => deleteEnvVar(env.key)} title="Delete">
+											<Button variant="ghost" size="icon" class="h-5 w-5 text-destructive" onclick={() => deleteEnvVar(env.key, env.container_name)} title="Delete">
 												<Trash2 class="h-3 w-3" />
 											</Button>
 										</div>
@@ -566,21 +609,40 @@
 					</Card.Header>
 					<Card.Content class="space-y-4">
 						{#if stack.webhook_token}
-							<div class="space-y-2">
-								<Label>Webhook URL</Label>
-								<div class="flex items-center gap-2">
-									<Input readonly value={webhookUrl} class="font-mono text-xs" />
-									<Button variant="outline" size="icon" onclick={() => copyToClipboard(webhookUrl)}>
-										<Copy class="h-4 w-4" />
-									</Button>
+							<div class="space-y-4">
+								<div class="space-y-2">
+									<div class="flex items-center justify-between">
+										<Label>Webhook URL</Label>
+										<select
+											bind:value={selectedWebhookService}
+											class="h-7 rounded-md border border-input bg-background px-2 text-[10px]"
+										>
+											<option value="">All Services</option>
+											{#each containers as container}
+												<option value={container.labels?.['labuh.service.name'] || container.names[0]?.replace(/^\//, '')}>
+													Only {container.labels?.['labuh.service.name'] || container.names[0]?.replace(/^\//, '')}
+												</option>
+											{/each}
+										</select>
+									</div>
+									<div class="flex items-center gap-2">
+										<Input readonly value={filteredWebhookUrl} class="font-mono text-[10px]" />
+										<Button variant="outline" size="icon" class="h-9 w-9" onclick={() => copyToClipboard(filteredWebhookUrl)}>
+											<Copy class="h-4 w-4" />
+										</Button>
+									</div>
+									<p class="text-[10px] text-muted-foreground">
+										{#if selectedWebhookService}
+											POST to this URL to pull latest image and redeploy <strong>{selectedWebhookService}</strong> only.
+										{:else}
+											POST to this URL to pull latest images and redeploy all containers in this stack.
+										{/if}
+									</p>
 								</div>
-								<p class="text-xs text-muted-foreground">
-									POST to this URL to pull latest images and redeploy.
-								</p>
+								<Button variant="outline" size="sm" class="w-full text-xs" onclick={regenerateWebhook}>
+									Regenerate Token
+								</Button>
 							</div>
-							<Button variant="outline" size="sm" class="w-full" onclick={regenerateWebhook}>
-								Regenerate Token
-							</Button>
 						{:else}
 							<Button class="w-full" onclick={regenerateWebhook}>
 								Generate Webhook
@@ -599,15 +661,36 @@
 						<Card.Description>Manage custom domains</Card.Description>
 					</Card.Header>
 					<Card.Content class="space-y-4">
-						<div class="flex gap-2">
-							<Input placeholder="example.com" bind:value={newDomain} />
-							<Button size="icon" onclick={addDomain} disabled={addingDomain}>
-								{#if addingDomain}
-									<div class="animate-spin rounded-full h-3 w-3 border-b-2 border-primary-foreground"></div>
-								{:else}
-									<div class="h-4 w-4">+</div>
-								{/if}
-							</Button>
+						<div class="grid gap-2">
+							<div class="flex gap-2">
+								<Input placeholder="example.com" bind:value={newDomain} class="flex-1" />
+							</div>
+							<div class="flex gap-2">
+								<select
+									bind:value={newDomainContainer}
+									class="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm"
+								>
+									<option value="">Select container...</option>
+									{#each containers as container}
+										<option value={container.names[0]?.replace(/^\//, '') || container.id}>
+											{container.names[0]?.replace(/^\//, '') || container.id.substring(0, 12)}
+										</option>
+									{/each}
+								</select>
+								<Input
+									type="number"
+									placeholder="Port"
+									bind:value={newDomainPort}
+									class="w-20"
+								/>
+								<Button size="icon" onclick={addDomain} disabled={addingDomain || !newDomain || !newDomainContainer}>
+									{#if addingDomain}
+										<div class="animate-spin rounded-full h-3 w-3 border-b-2 border-primary-foreground"></div>
+									{:else}
+										<div class="h-4 w-4">+</div>
+									{/if}
+								</Button>
+							</div>
 						</div>
 
 						<div class="space-y-2">
@@ -623,6 +706,7 @@
 												<AlertCircle class="h-3 w-3 text-yellow-500 flex-shrink-0" />
 											{/if}
 											<span class="text-sm truncate" title={domain.domain}>{domain.domain}</span>
+									<span class="text-xs text-muted-foreground">→ {domain.container_name}:{domain.container_port}</span>
 										</div>
 										<div class="flex gap-1">
 											{#if !domain.verified}

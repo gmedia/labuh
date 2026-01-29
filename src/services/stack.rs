@@ -77,17 +77,15 @@ impl StackService {
         .execute(&self.db)
         .await?;
 
-        // Create containers for each service
-        let db_env = self.environment_service.get_env_map(&id).await.unwrap_or_default();
-
         for service in &parsed.services {
             let mut request = service_to_container_request(service, &id, name);
 
-            // Merge database env vars (override those in compose)
+            // Fetch merged env vars for this specific container
+            let db_env = self.environment_service.get_env_map_for_container(&id, &service.name).await.unwrap_or_default();
+
             if !db_env.is_empty() {
                 let mut merged_env = request.env.unwrap_or_default();
                 for (key, value) in &db_env {
-                    // Check if already exists in merged_env and replace or add
                     let entry = format!("{}={}", key, value);
                     if let Some(pos) = merged_env.iter().position(|e| e.starts_with(&format!("{}=", key))) {
                         merged_env[pos] = entry;
@@ -241,13 +239,12 @@ impl StackService {
 
         let parsed = parse_compose(&compose_content)?;
 
-        // Recreate containers
-        let db_env = self.environment_service.get_env_map(id).await.unwrap_or_default();
-
         for service in &parsed.services {
             let mut request = service_to_container_request(service, &stack.id, &stack.name);
 
-            // Merge database env vars (override those in compose)
+            // Fetch merged env vars for this specific container
+            let db_env = self.environment_service.get_env_map_for_container(id, &service.name).await.unwrap_or_default();
+
             if !db_env.is_empty() {
                 let mut merged_env = request.env.unwrap_or_default();
                 for (key, value) in &db_env {
@@ -265,8 +262,6 @@ impl StackService {
             self.container_service.pull_image(&request.image).await?;
 
             // 2. Stop and remove existing container if it exists
-            // Finding the container ID depends on naming convention or tracking
-            // Use get_stack_containers to find it
             let containers = self.get_stack_containers(&stack.id).await?;
             let prefix = format!("/{}-{}", stack.name, service.name);
 
@@ -282,6 +277,69 @@ impl StackService {
         }
 
         self.start_stack(id, &stack.user_id).await?;
+
+        Ok(())
+    }
+
+    /// Redeploy only a specific service in a stack
+    pub async fn redeploy_service(&self, stack_id: &str, service_name: &str, user_id: &str) -> Result<()> {
+        let stack = self.get_stack(stack_id, user_id).await?;
+        let compose_content = stack.compose_content.ok_or_else(||
+            crate::error::AppError::BadRequest("Stack has no compose content".to_string())
+        )?;
+
+        let parsed = parse_compose(&compose_content)?;
+        tracing::debug!("Redeploying service '{}' in stack '{}'. Available services: {:?}",
+            service_name, stack.name, parsed.services.iter().map(|s| &s.name).collect::<Vec<_>>());
+
+        let service = parsed.services.iter().find(|s| {
+            let normalized_name = service_name.to_lowercase();
+            let s_name = s.name.to_lowercase();
+            let full_name = format!("{}-{}", stack.name, s.name).to_lowercase();
+
+            s_name == normalized_name || full_name == normalized_name
+        })
+            .ok_or_else(|| {
+                tracing::error!("Service '{}' not found in stack '{}'. Available: {:?}",
+                    service_name, stack.name, parsed.services.iter().map(|s| &s.name).collect::<Vec<_>>());
+                crate::error::AppError::NotFound(format!("Service {} not found in stack", service_name))
+            })?;
+
+        let mut request = service_to_container_request(service, &stack.id, &stack.name);
+
+        // Fetch merged env vars for this specific container
+        let db_env = self.environment_service.get_env_map_for_container(stack_id, service_name).await?;
+
+        if !db_env.is_empty() {
+            let mut merged_env = request.env.unwrap_or_default();
+            for (key, value) in &db_env {
+                let entry = format!("{}={}", key, value);
+                if let Some(pos) = merged_env.iter().position(|e| e.starts_with(&format!("{}=", key))) {
+                    merged_env[pos] = entry;
+                } else {
+                    merged_env.push(entry);
+                }
+            }
+            request.env = Some(merged_env);
+        }
+
+        // 1. Pull latest image
+        self.container_service.pull_image(&request.image).await?;
+
+        // 2. Stop and remove existing container
+        let containers = self.get_stack_containers(stack_id).await?;
+        let full_name = format!("/{}-{}", stack.name, service_name);
+
+        for c in containers {
+            if c.names.iter().any(|n| n == &full_name) {
+                let _ = self.container_service.stop_container(&c.id).await;
+                let _ = self.container_service.remove_container(&c.id, true).await;
+            }
+        }
+
+        // 3. Create and start new container
+        let container_id = self.container_service.create_container(request).await?;
+        self.container_service.start_container(&container_id).await?;
 
         Ok(())
     }
