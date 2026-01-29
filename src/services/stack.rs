@@ -10,16 +10,17 @@ use rand::Rng;
 use crate::error::Result;
 use crate::models::Stack;
 use crate::services::compose::{parse_compose, service_to_container_request};
-use crate::services::ContainerService;
+use crate::services::{ContainerService, EnvironmentService};
 
 pub struct StackService {
     db: SqlitePool,
     container_service: Arc<ContainerService>,
+    environment_service: Arc<EnvironmentService>,
 }
 
 impl StackService {
-    pub fn new(db: SqlitePool, container_service: Arc<ContainerService>) -> Self {
-        Self { db, container_service }
+    pub fn new(db: SqlitePool, container_service: Arc<ContainerService>, environment_service: Arc<EnvironmentService>) -> Self {
+        Self { db, container_service, environment_service }
     }
 
     /// List all stacks for a user
@@ -77,8 +78,25 @@ impl StackService {
         .await?;
 
         // Create containers for each service
+        let db_env = self.environment_service.get_env_map(&id).await.unwrap_or_default();
+
         for service in &parsed.services {
-            let request = service_to_container_request(service, &id, name);
+            let mut request = service_to_container_request(service, &id, name);
+
+            // Merge database env vars (override those in compose)
+            if !db_env.is_empty() {
+                let mut merged_env = request.env.unwrap_or_default();
+                for (key, value) in &db_env {
+                    // Check if already exists in merged_env and replace or add
+                    let entry = format!("{}={}", key, value);
+                    if let Some(pos) = merged_env.iter().position(|e| e.starts_with(&format!("{}=", key))) {
+                        merged_env[pos] = entry;
+                    } else {
+                        merged_env.push(entry);
+                    }
+                }
+                request.env = Some(merged_env);
+            }
 
             // Pull image first
             self.container_service.pull_image(&request.image).await?;
@@ -228,8 +246,24 @@ impl StackService {
         let parsed = parse_compose(&compose_content)?;
 
         // Recreate containers
+        let db_env = self.environment_service.get_env_map(id).await.unwrap_or_default();
+
         for service in &parsed.services {
-            let request = service_to_container_request(service, &stack.id, &stack.name);
+            let mut request = service_to_container_request(service, &stack.id, &stack.name);
+
+            // Merge database env vars (override those in compose)
+            if !db_env.is_empty() {
+                let mut merged_env = request.env.unwrap_or_default();
+                for (key, value) in &db_env {
+                    let entry = format!("{}={}", key, value);
+                    if let Some(pos) = merged_env.iter().position(|e| e.starts_with(&format!("{}=", key))) {
+                        merged_env[pos] = entry;
+                    } else {
+                        merged_env.push(entry);
+                    }
+                }
+                request.env = Some(merged_env);
+            }
 
             // 1. Pull latest image
             self.container_service.pull_image(&request.image).await?;
@@ -284,4 +318,119 @@ impl StackService {
 
         Ok(())
     }
+
+    /// Get stack health overview
+    pub async fn get_stack_health(&self, id: &str, user_id: &str) -> Result<StackHealth> {
+        let _ = self.get_stack(id, user_id).await?; // Verify ownership
+        let containers = self.get_stack_containers(id).await?;
+
+        let total = containers.len();
+        let running = containers.iter().filter(|c| c.state == "running").count();
+        let stopped = containers.iter().filter(|c| c.state == "exited" || c.state == "created").count();
+        let unhealthy = containers.iter().filter(|c| c.state != "running" && c.state != "exited" && c.state != "created").count();
+
+        let status = if total == 0 {
+            "empty".to_string()
+        } else if running == total {
+            "healthy".to_string()
+        } else if running > 0 {
+            "partial".to_string()
+        } else {
+            "stopped".to_string()
+        };
+
+        Ok(StackHealth {
+            status,
+            total,
+            running,
+            stopped,
+            unhealthy,
+            containers: containers.into_iter().map(|c| ContainerHealth {
+                id: c.id,
+                name: c.names.first().cloned().unwrap_or_default(),
+                state: c.state,
+                status: c.status,
+            }).collect(),
+        })
+    }
+
+    /// Get combined logs from all containers in a stack
+    pub async fn get_stack_logs(&self, id: &str, user_id: &str, tail: Option<usize>) -> Result<Vec<StackLogEntry>> {
+        let _ = self.get_stack(id, user_id).await?; // Verify ownership
+        let containers = self.get_stack_containers(id).await?;
+
+        let mut all_logs = Vec::new();
+        let tail_count = tail.unwrap_or(100);
+
+        for container in containers {
+            let container_name = container.names.first()
+                .map(|n| n.trim_start_matches('/').to_string())
+                .unwrap_or_else(|| container.id.clone());
+
+            match self.container_service.get_container_logs(&container.id, tail_count).await {
+                Ok(logs) => {
+                    for line in logs {
+                        all_logs.push(StackLogEntry {
+                            container: container_name.clone(),
+                            message: line,
+                        });
+                    }
+                }
+                Err(e) => {
+                    all_logs.push(StackLogEntry {
+                        container: container_name.clone(),
+                        message: format!("[error fetching logs: {}]", e),
+                    });
+                }
+            }
+        }
+
+        Ok(all_logs)
+    }
+
+    /// Update stack compose content and redeploy
+    pub async fn update_stack_compose(&self, id: &str, compose_content: &str, user_id: &str) -> Result<()> {
+        let _stack = self.get_stack(id, user_id).await?; // Verify ownership
+
+        // Validate compose first
+        crate::services::compose::parse_compose(compose_content)?;
+
+        sqlx::query("UPDATE stacks SET compose_content = ?, updated_at = ? WHERE id = ?")
+            .bind(compose_content)
+            .bind(&chrono::Utc::now().to_rfc3339())
+            .bind(id)
+            .execute(&self.db)
+            .await?;
+
+        // Trigger redeploy
+        self.redeploy_stack(id).await?;
+
+        Ok(())
+    }
+}
+
+/// Stack health overview
+#[derive(Debug, serde::Serialize)]
+pub struct StackHealth {
+    pub status: String,
+    pub total: usize,
+    pub running: usize,
+    pub stopped: usize,
+    pub unhealthy: usize,
+    pub containers: Vec<ContainerHealth>,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct ContainerHealth {
+    pub id: String,
+    pub name: String,
+    pub state: String,
+    pub status: String,
+}
+
+/// Single log entry with container source
+#[derive(Debug, serde::Serialize)]
+pub struct StackLogEntry {
+    pub container: String,
+    pub message: String,
 }

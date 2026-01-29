@@ -15,7 +15,7 @@
 		<Card.Content class="prose prose-neutral dark:prose-invert max-w-none">
 			<ul>
 				<li><strong>Linux server</strong> (Ubuntu 20.04+ recommended)</li>
-				<li><strong>Docker</strong> or <strong>containerd</strong> with nerdctl</li>
+				<li><strong>Docker Engine</strong> installed and running</li>
 				<li><strong>1GB RAM</strong> minimum (2GB recommended)</li>
 				<li>Ports 80, 443, 3000 available</li>
 			</ul>
@@ -79,34 +79,6 @@ sudo systemctl stop labuh
 
 # View logs
 sudo journalctl -u labuh -f</code></pre>
-		</Card.Content>
-	</Card.Root>
-
-	<Card.Root>
-		<Card.Header>
-			<Card.Title>Option 3: Containerd Only (No Docker)</Card.Title>
-		</Card.Header>
-		<Card.Content class="prose prose-neutral dark:prose-invert max-w-none">
-			<p>For servers where you don't want the full Docker daemon:</p>
-
-			<h3>Install containerd + nerdctl</h3>
-			<pre class="bg-muted p-4 rounded-lg overflow-x-auto"><code># Install containerd
-sudo apt install containerd
-
-# Install nerdctl (Docker-compatible CLI)
-wget https://github.com/containerd/nerdctl/releases/download/v1.7.0/nerdctl-1.7.0-linux-amd64.tar.gz
-sudo tar -xzf nerdctl-*.tar.gz -C /usr/local/bin
-
-# Enable Docker API shim
-# This allows bollard/Docker API clients to work with containerd
-sudo nerdctl run -d --name dockerd-shim \
-  --privileged \
-  -v /run/containerd:/run/containerd \
-  docker:dind</code></pre>
-
-			<p><strong>Note:</strong> Labuh uses the Docker API via bollard. For containerd-only setups,
-			you can use the lightweight Docker shim shown above, which provides Docker API compatibility
-			without the full Docker daemon.</p>
 		</Card.Content>
 	</Card.Root>
 

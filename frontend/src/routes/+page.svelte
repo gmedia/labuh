@@ -74,12 +74,12 @@
 				</div>
 				<div class="space-y-3 text-center">
 					<div class="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-purple-500/10 text-purple-500">
-						<Container class="h-6 w-6" />
+						<Ship class="h-6 w-6" />
 					</div>
-					<h3 class="font-semibold">Container Native</h3>
+					<h3 class="font-semibold">Docker Support</h3>
 					<p class="text-sm text-muted-foreground">
-						Direct containerd integration without the overhead of Docker daemon.
-						Deploy any OCI-compatible container.
+						Leverages Docker API for robust and standard container management.
+						Deploy any OCI-compatible image with ease.
 					</p>
 				</div>
 				<div class="space-y-3 text-center">

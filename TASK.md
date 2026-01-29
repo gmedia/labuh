@@ -31,7 +31,7 @@
 
 - [x] **Environment Variable Management**
   - [x] Per-container env vars editor
-  - [ ] Per-project env vars (inherited by containers)
+  <!-- - [ ] Per-project env vars (inherited by containers) not relevant cause project has been deleted -->
   - [x] Secret masking in UI
   - [x] Import from .env file
 
@@ -51,28 +51,28 @@
 
 - [x] **Stack View**
   - [x] Group containers by stack/compose file
-  - [ ] Stack-level logs viewer
-  - [ ] Stack health overview
+  - [x] Stack-level logs viewer
+  - [x] Stack health overview
 
 ### Phase 8: Domain & Routing (Caddy) ✅
 
 - [x] **Domain Management**
   - [x] Add custom domains per project
-  - [ ] Subdomain auto-generation (app-name.labuh.local)
-  - [ ] DNS verification
+  - [x] Subdomain auto-generation (app-name.labuh.local)
+  - [x] DNS verification
   - [x] SSL auto-provisioning (Let's Encrypt via Caddy)
 
 - [x] **Caddy Integration**
-  - [ ] Auto-create Caddy container (port 80, 443)
+  - [x] Auto-create Caddy container (port 80, 443)
   - [x] Dynamic route updates via Caddy API
-  - [ ] Handle Docker networks (connect Caddy to container networks)
+  - [x] Handle Docker networks (connect Caddy to container networks)
   - [x] Reverse proxy configuration UI
-  - [ ] Basic Auth protection per route
+  - [x] Basic Auth protection per route
 
-- [ ] **Networking**
-  - [ ] Create labuh-network for all containers
-  - [ ] Connect Caddy to all project networks
-  - [ ] Internal DNS resolution (container-name.labuh)
+- [x] **Networking**
+  - [x] Create labuh-network for all containers
+  - [x] Connect Caddy to all project networks
+  - [x] Internal DNS resolution (container-name.labuh)
 
 ### Phase 9: Private Registry & Auth ✅
 
@@ -81,7 +81,7 @@
   - [x] Store GitHub Container Registry (ghcr.io) tokens
   - [x] Store custom registry credentials
   - [x] Credential management UI
-  - [ ] Per-project registry config (using global user credentials for now)
+  - [x] Per-project registry config (using global user credentials for now)
 
 - [x] **Authenticated Pull**
   - [x] Use stored credentials when pulling
@@ -89,11 +89,11 @@
 
 ### Phase 10: Webhooks & CI/CD
 
-- [ ] **Webhook Endpoints**
+- [x] **Webhook Endpoints**
   - [x] `/api/webhooks/deploy/:project-id/:token`
   - [x] Token-based authentication
   - [x] Trigger: pull latest image & restart container
-  - [ ] Webhook logs/history
+  - [x] Webhook logs/history
 
 - [ ] **GitHub Integration**
   - [ ] GitHub webhook receiver

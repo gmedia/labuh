@@ -18,8 +18,8 @@
 		<Card.Content class="prose prose-neutral dark:prose-invert max-w-none">
 			<p>
 				<strong>Labuh</strong> (dari bahasa Indonesia: berlabuh = to dock) adalah platform PaaS
-				sederhana dan ringan untuk deploy, pull, dan manage container images. Dirancang khusus
-				untuk server dengan resource terbatas.
+				sederhana dan ringan untuk mengelola Docker containers, image, dan stacks. Dirancang khusus
+				untuk memberikan kemudahan manajemen infrastruktur pada server dengan resource terbatas.
 			</p>
 			<h3>Features</h3>
 			<ul>

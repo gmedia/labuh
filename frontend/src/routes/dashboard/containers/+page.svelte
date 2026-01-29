@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { api, type Container } from '$lib/api';
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
@@ -103,32 +104,39 @@
 		});
 
 		if (result.data) {
+			toast.success('Container created successfully');
 			showCreateDialog = false;
 			newContainer = { name: '', image: '', envVars: [], ports: [] };
 			await loadContainers();
 		} else {
-			alert(result.message || 'Failed to create container');
+			toast.error(result.error || 'Failed to create container');
 		}
 		creating = false;
 	}
 
 	async function startContainer(id: string) {
 		actionLoading = id;
-		await api.containers.start(id);
+		const result = await api.containers.start(id);
+		if (!result.error) toast.success('Container started');
+		else toast.error(result.error);
 		await loadContainers();
 		actionLoading = null;
 	}
 
 	async function stopContainer(id: string) {
 		actionLoading = id;
-		await api.containers.stop(id);
+		const result = await api.containers.stop(id);
+		if (!result.error) toast.success('Container stopped');
+		else toast.error(result.error);
 		await loadContainers();
 		actionLoading = null;
 	}
 
 	async function restartContainer(id: string) {
 		actionLoading = id;
-		await api.containers.restart(id);
+		const result = await api.containers.restart(id);
+		if (!result.error) toast.success('Container restarted');
+		else toast.error(result.error);
 		await loadContainers();
 		actionLoading = null;
 	}
@@ -136,7 +144,9 @@
 	async function removeContainer(id: string) {
 		if (!confirm('Are you sure you want to delete this container?')) return;
 		actionLoading = id;
-		await api.containers.remove(id);
+		const result = await api.containers.remove(id);
+		if (!result.error) toast.success('Container removed');
+		else toast.error(result.error);
 		await loadContainers();
 		actionLoading = null;
 	}

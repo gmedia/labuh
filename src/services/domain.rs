@@ -121,17 +121,98 @@ impl DomainService {
         Ok(format!("{}:80", stack.name))
     }
 
-    /// Verify domain DNS (basic check)
-    pub async fn verify_domain(&self, domain: &str) -> Result<bool> {
-        // For now, just mark as verified (real implementation would check DNS)
+    /// Verify domain DNS - checks if domain resolves to expected IP or has valid CNAME
+    pub async fn verify_domain(&self, domain: &str, expected_ip: Option<&str>) -> Result<DnsVerificationResult> {
+        use hickory_resolver::TokioAsyncResolver;
+        use hickory_resolver::config::{ResolverConfig, ResolverOpts};
+
+        let resolver = TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default());
+
+        // Try A record lookup
+        let a_records = match resolver.lookup_ip(domain).await {
+            Ok(lookup) => lookup.iter().map(|ip| ip.to_string()).collect::<Vec<_>>(),
+            Err(_) => vec![],
+        };
+
+        // Try CNAME lookup
+        let cname_records = match resolver.lookup(domain, hickory_resolver::proto::rr::RecordType::CNAME).await {
+            Ok(lookup) => lookup.iter()
+                .filter_map(|r| r.clone().into_cname().ok())
+                .map(|cname| cname.to_string().trim_end_matches('.').to_string())
+                .collect::<Vec<_>>(),
+            Err(_) => vec![],
+        };
+
+        let verified = if let Some(expected) = expected_ip {
+            a_records.iter().any(|ip| ip == expected)
+        } else {
+            !a_records.is_empty() || !cname_records.is_empty()
+        };
+
+        // Update database
         sqlx::query("UPDATE domains SET verified = ? WHERE domain = ?")
-            .bind(true)
+            .bind(verified)
             .bind(domain)
             .execute(&self.db)
             .await?;
 
-        Ok(true)
+        Ok(DnsVerificationResult {
+            domain: domain.to_string(),
+            verified,
+            a_records,
+            cname_records,
+        })
+    }
+
+    /// Generate a subdomain for a stack based on naming convention
+    pub fn generate_subdomain(stack_name: &str, base_domain: &str) -> String {
+        // Sanitize stack name: lowercase, replace spaces with hyphens, remove special chars
+        let sanitized: String = stack_name
+            .to_lowercase()
+            .chars()
+            .map(|c| if c.is_alphanumeric() { c } else { '-' })
+            .collect();
+
+        // Remove consecutive hyphens and trim
+        let mut result = String::new();
+        let mut prev_hyphen = false;
+        for c in sanitized.chars() {
+            if c == '-' {
+                if !prev_hyphen && !result.is_empty() {
+                    result.push(c);
+                    prev_hyphen = true;
+                }
+            } else {
+                result.push(c);
+                prev_hyphen = false;
+            }
+        }
+        result = result.trim_matches('-').to_string();
+
+        format!("{}.{}", result, base_domain)
+    }
+
+    /// Create an auto-generated subdomain for a stack
+    pub async fn create_stack_subdomain(&self, stack_id: &str, stack_name: &str, base_domain: &str) -> Result<Domain> {
+        let subdomain = Self::generate_subdomain(stack_name, base_domain);
+        let upstream = self.get_stack_upstream(stack_id).await?;
+
+        // Check if subdomain already exists - if so, return existing
+        if let Ok(existing) = self.list_domains(stack_id).await {
+            if let Some(domain) = existing.iter().find(|d| d.domain == subdomain) {
+                return Ok(domain.clone());
+            }
+        }
+
+        self.add_domain(stack_id, &subdomain, &upstream).await
     }
 }
 
-
+/// Result of DNS verification
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct DnsVerificationResult {
+    pub domain: String,
+    pub verified: bool,
+    pub a_records: Vec<String>,
+    pub cname_records: Vec<String>,
+}

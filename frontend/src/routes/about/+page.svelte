@@ -60,18 +60,18 @@
 				</p>
 				<p>
 					Banyak developer dan sysadmin yang sebenarnya ingin menggunakan container untuk
-					deploy aplikasi mereka, tapi merasa overwhelmed dengan kompleksitas Docker,
-					Kubernetes, dan tool-tool lainnya. Mereka hanya butuh cara simple untuk:
+					deploy aplikasi mereka, tapi merasa overwhelmed dengan kompleksitas Command Line Interface (CLI)
+					Docker, Compose, dan tool-tool lainnya. Mereka hanya butuh cara simple untuk:
 				</p>
 				<ul>
 					<li>Pull image dari registry</li>
-					<li>Jalankan container</li>
-					<li>Lihat logs</li>
-					<li>Monitor resource usage</li>
+					<li>Jalankan container & Stacks</li>
+					<li>Monitor logs & Health</li>
+					<li>Setup domain & SSL secara otomatis</li>
 				</ul>
 				<p>
-					Labuh hadir untuk menjembatani gap ini. Tanpa perlu hafal command Docker,
-					tanpa perlu setup kompleks, cukup dengan UI yang intuitif.
+					Labuh hadir untuk menjembatani gap ini. Tanpa perlu hafal puluhan command,
+					cukup dengan UI yang intuitif untuk mengimbangi engine Docker yang powerful.
 				</p>
 			</Card.Content>
 		</Card.Root>

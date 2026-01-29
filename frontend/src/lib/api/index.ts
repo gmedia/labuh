@@ -194,6 +194,37 @@ export interface CreateRegistryCredential {
   password: string;
 }
 
+export interface ContainerHealth {
+  container_id: string;
+  container_name: string;
+  state: string;
+  status: string;
+}
+
+export interface StackHealth {
+  stack_id: string;
+  stack_name: string;
+  status: string;
+  containers: ContainerHealth[];
+  healthy_count: number;
+  total_count: number;
+}
+
+export interface StackLogEntry {
+  container_name: string;
+  line: string;
+}
+
+export interface EnvVar {
+  id: string;
+  stack_id: string;
+  key: string;
+  value: string;
+  is_secret: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export const api = {
   auth: {
     login: async (data: LoginRequest) => {
@@ -347,6 +378,19 @@ export const api = {
       });
     },
 
+    redeploy: async (id: string) => {
+      return fetchApi<{ status: string }>(`/stacks/${id}/redeploy`, {
+        method: "POST",
+      });
+    },
+
+    updateCompose: async (id: string, composeContent: string) => {
+      return fetchApi<{ status: string }>(`/stacks/${id}/compose`, {
+        method: "PUT",
+        body: JSON.stringify({ compose_content: composeContent }),
+      });
+    },
+
     remove: async (id: string) => {
       return fetchApi<{ status: string }>(`/stacks/${id}`, {
         method: "DELETE",
@@ -385,10 +429,59 @@ export const api = {
       },
 
       verify: async (stackId: string, domain: string) => {
-        return fetchApi<{ verified: boolean }>(
-          `/stacks/${stackId}/domains/${encodeURIComponent(domain)}/verify`,
+        return fetchApi<{
+          verified: boolean;
+          a_records?: string[];
+          cname_records?: string[];
+        }>(`/stacks/${stackId}/domains/${encodeURIComponent(domain)}/verify`, {
+          method: "POST",
+        });
+      },
+    },
+
+    // Stack health overview
+    health: async (id: string) => {
+      return fetchApi<StackHealth>(`/stacks/${id}/health`);
+    },
+
+    // Combined logs from all containers
+    logs: async (id: string, tail = 100) => {
+      return fetchApi<StackLogEntry[]>(`/stacks/${id}/logs?tail=${tail}`);
+    },
+
+    // Environment variables
+    env: {
+      list: async (stackId: string) => {
+        return fetchApi<EnvVar[]>(`/stacks/${stackId}/env`);
+      },
+
+      set: async (
+        stackId: string,
+        key: string,
+        value: string,
+        isSecret = false,
+      ) => {
+        return fetchApi<EnvVar>(`/stacks/${stackId}/env`, {
+          method: "POST",
+          body: JSON.stringify({ key, value, is_secret: isSecret }),
+        });
+      },
+
+      bulkSet: async (
+        stackId: string,
+        vars: { key: string; value: string; is_secret?: boolean }[],
+      ) => {
+        return fetchApi<EnvVar[]>(`/stacks/${stackId}/env/bulk`, {
+          method: "PUT",
+          body: JSON.stringify({ vars }),
+        });
+      },
+
+      delete: async (stackId: string, key: string) => {
+        return fetchApi<{ status: string }>(
+          `/stacks/${stackId}/env/${encodeURIComponent(key)}`,
           {
-            method: "POST",
+            method: "DELETE",
           },
         );
       },

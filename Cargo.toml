@@ -56,3 +56,6 @@ libc = "0.2"
 # Streaming
 async-stream = "0.3"
 tokio-stream = "0.1"
+
+# DNS resolver
+hickory-resolver = "0.24"

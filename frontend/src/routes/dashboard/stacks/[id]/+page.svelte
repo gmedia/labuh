@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { api, type Stack, type Container, type Domain, type DeploymentLog } from '$lib/api';
+	import { api, type Stack, type Container, type Domain, type DeploymentLog, type StackHealth, type StackLogEntry, type EnvVar } from '$lib/api';
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -11,7 +12,7 @@
 	import {
 		ArrowLeft, Play, Square, Trash2, RefreshCw, Terminal, Layers,
 		Container as ContainerIcon, FileCode, Save, CheckCircle, XCircle,
-		Globe, History, Webhook, Copy, AlertCircle, RotateCcw
+		Globe, History, Webhook, Copy, AlertCircle, RotateCcw, Activity, Settings, Eye, EyeOff, Plus
 	} from '@lucide/svelte';
 
 	const stackId: string = $page.params.id ?? '';
@@ -21,6 +22,15 @@
 	let domains = $state<Domain[]>([]);
 	let deployments = $state<DeploymentLog[]>([]);
 	let logs = $state<Map<string, string[]>>(new Map());
+
+	// New state for health, env vars, and stack logs
+	let health = $state<StackHealth | null>(null);
+	let envVars = $state<EnvVar[]>([]);
+	let stackLogs = $state<StackLogEntry[]>([]);
+	let newEnvKey = $state('');
+	let newEnvValue = $state('');
+	let newEnvSecret = $state(false);
+	let showSecrets = $state<Set<string>>(new Set());
 
 	let loading = $state(true);
 	let actionLoading = $state(false);
@@ -63,6 +73,27 @@
 		}
 	}
 
+	async function loadHealth() {
+		const result = await api.stacks.health(stackId);
+		if (result.data) {
+			health = result.data;
+		}
+	}
+
+	async function loadEnvVars() {
+		const result = await api.stacks.env.list(stackId);
+		if (result.data) {
+			envVars = result.data;
+		}
+	}
+
+	async function loadStackLogs() {
+		const result = await api.stacks.logs(stackId, 100);
+		if (result.data) {
+			stackLogs = result.data;
+		}
+	}
+
 	async function loadContainerLogs(containerId: string) {
 		selectedContainerLogs = containerId;
 		const result = await api.containers.logs(containerId, 100);
@@ -78,7 +109,9 @@
 			await Promise.all([
 				loadContainers(),
 				loadDomains(),
-				loadDeployments()
+				loadDeployments(),
+				loadHealth(),
+				loadEnvVars()
 			]);
 		}
 	});
@@ -99,6 +132,15 @@
 		actionLoading = false;
 	}
 
+	async function redeployStack() {
+		if (!stack) return;
+		if (!confirm('Recreate all containers in this stack? This will apply any environment variable changes.')) return;
+		actionLoading = true;
+		await api.stacks.redeploy(stack.id);
+		await Promise.all([loadStack(), loadContainers(), loadHealth()]);
+		actionLoading = false;
+	}
+
 	async function removeStack() {
 		if (!stack) return;
 		if (!confirm('Are you sure you want to delete this stack and all its containers?')) return;
@@ -110,18 +152,20 @@
 	async function saveCompose() {
 		if (!stack) return;
 		savingCompose = true;
-		// TODO: Implement compose update API (redeploy)
-		// For now we don't have update endpoint in frontend api for compose content specifically?
-		// Ah, we need a way to update compose content.
-		// Actually the plan said "Add update_compose() method".
-		// I missed adding an `update` endpoint for Stack in the plan execution.
-		// I added `redeploy_stack` but that uses existing compose content.
-		// I should check if I can use `create_stack` to update? No.
-		// I need to add an update endpoint.
-		// For now, let's keep it disabled or mock it.
-		alert('Feature coming soon: Update compose');
-		savingCompose = false;
-		showComposeEditor = false;
+		try {
+			const result = await api.stacks.updateCompose(stack.id, editedCompose);
+			if (result.error) {
+				toast.error(result.error);
+			} else {
+				toast.success('Stack updated and redeployment triggered');
+				showComposeEditor = false;
+				await Promise.all([loadStack(), loadContainers(), loadHealth()]);
+			}
+		} catch (e: any) {
+			toast.error(e.message || 'Failed to update stack');
+		} finally {
+			savingCompose = false;
+		}
 	}
 
 	async function addDomain() {
@@ -145,6 +189,31 @@
 		await loadDomains();
 	}
 
+	async function addEnvVar() {
+		if (!stack || !newEnvKey) return;
+		await api.stacks.env.set(stack.id, newEnvKey, newEnvValue, newEnvSecret);
+		newEnvKey = '';
+		newEnvValue = '';
+		newEnvSecret = false;
+		await loadEnvVars();
+	}
+
+	async function deleteEnvVar(key: string) {
+		if (!stack || !confirm(`Delete environment variable "${key}"?`)) return;
+		await api.stacks.env.delete(stack.id, key);
+		await loadEnvVars();
+	}
+
+	function toggleSecretVisibility(id: string) {
+		const newSet = new Set(showSecrets);
+		if (newSet.has(id)) {
+			newSet.delete(id);
+		} else {
+			newSet.add(id);
+		}
+		showSecrets = newSet;
+	}
+
 	async function regenerateWebhook() {
 		if (!stack || !confirm('Regenerate webhook token? Previous URL will stop working.')) return;
 		const result = await api.stacks.regenerateWebhookToken(stack.id);
@@ -155,7 +224,7 @@
 
 	function copyToClipboard(text: string) {
 		navigator.clipboard.writeText(text);
-		// TODO: Toast notification
+		toast.success('Copied to clipboard');
 	}
 
 	function getStatusColor(state: string): string {
@@ -231,6 +300,9 @@
 										<Square class="h-4 w-4 mr-1" /> Stop
 									</Button>
 								{/if}
+								<Button variant="outline" size="sm" onclick={redeployStack} disabled={actionLoading} title="Recreate containers to apply changes">
+									<RotateCcw class="h-4 w-4 mr-1" /> Restart
+								</Button>
 								<Button variant="outline" size="sm" onclick={() => showComposeEditor = !showComposeEditor}>
 									<FileCode class="h-4 w-4 mr-1" /> Edit
 								</Button>
@@ -373,8 +445,116 @@
 				{/if}
 			</div>
 
-			<!-- Sidebar: Domains & Webhooks & History -->
+			<!-- Sidebar: Health, Env Vars, Domains & Webhooks & History -->
 			<div class="space-y-6">
+				<!-- Health Overview -->
+				<Card.Root>
+					<Card.Header>
+						<div class="flex items-center justify-between">
+							<Card.Title class="flex items-center gap-2">
+								<Activity class="h-5 w-5" />
+								Health
+							</Card.Title>
+							<Button variant="ghost" size="sm" onclick={loadHealth}>
+								<RefreshCw class="h-3 w-3" />
+							</Button>
+						</div>
+					</Card.Header>
+					<Card.Content>
+						{#if health}
+							<div class="space-y-3">
+								<div class="flex items-center justify-between">
+									<span class="text-sm text-muted-foreground">Status</span>
+									<span class="font-medium capitalize {health.status === 'healthy' ? 'text-green-500' : health.status === 'partial' ? 'text-yellow-500' : 'text-red-500'}">
+										{health.status}
+									</span>
+								</div>
+								<div class="flex items-center justify-between">
+									<span class="text-sm text-muted-foreground">Containers</span>
+									<span class="font-medium">{health.healthy_count}/{health.total_count} running</span>
+								</div>
+								{#if health.containers.length > 0}
+									<div class="space-y-1 pt-2 border-t">
+										{#each health.containers as c}
+											<div class="flex items-center justify-between text-xs">
+												<span class="truncate flex-1">{c.container_name}</span>
+												<span class="ml-2 {c.state === 'running' ? 'text-green-500' : 'text-red-500'}">{c.state}</span>
+											</div>
+										{/each}
+									</div>
+								{/if}
+							</div>
+						{:else}
+							<p class="text-sm text-muted-foreground text-center py-2">Loading...</p>
+						{/if}
+					</Card.Content>
+				</Card.Root>
+
+				<!-- Environment Variables -->
+				<Card.Root>
+					<Card.Header>
+						<Card.Title class="flex items-center gap-2">
+							<Settings class="h-5 w-5" />
+							Environment Variables
+						</Card.Title>
+						<Card.Description>Configure stack environment</Card.Description>
+					</Card.Header>
+					<Card.Content class="space-y-4">
+						<div class="space-y-2">
+							<div class="flex gap-2">
+								<Input placeholder="KEY" bind:value={newEnvKey} class="flex-1 font-mono text-xs" />
+								<Input placeholder="value" bind:value={newEnvValue} class="flex-1 font-mono text-xs" />
+							</div>
+							<div class="flex items-center justify-between">
+								<label class="flex items-center gap-2 text-xs">
+									<input type="checkbox" bind:checked={newEnvSecret} class="rounded" />
+									Secret
+								</label>
+								<Button size="sm" variant="outline" onclick={addEnvVar}>
+									<Plus class="h-3 w-3 mr-1" /> Add
+								</Button>
+							</div>
+						</div>
+
+						<div class="space-y-1 max-h-40 overflow-y-auto">
+							{#if envVars.length === 0}
+								<p class="text-xs text-muted-foreground text-center py-2">No environment variables</p>
+							{:else}
+								{#each envVars as env}
+									<div class="flex items-center justify-between p-2 rounded border bg-background/50 text-xs">
+										<div class="flex-1 overflow-hidden">
+											<span class="font-mono font-medium">{env.key}</span>
+											<span class="text-muted-foreground mx-1">=</span>
+											{#if env.is_secret && !showSecrets.has(env.id)}
+												<span class="text-muted-foreground">********</span>
+											{:else}
+												<span class="font-mono text-muted-foreground truncate">{env.value}</span>
+											{/if}
+										</div>
+										<div class="flex items-center gap-1 ml-2">
+											{#if env.is_secret}
+												<Button variant="ghost" size="icon" class="h-5 w-5" onclick={() => toggleSecretVisibility(env.id)} title="Toggle visibility">
+													{#if showSecrets.has(env.id)}
+														<EyeOff class="h-3 w-3" />
+													{:else}
+														<Eye class="h-3 w-3" />
+													{/if}
+												</Button>
+											{/if}
+											<Button variant="ghost" size="icon" class="h-5 w-5 text-destructive" onclick={() => deleteEnvVar(env.key)} title="Delete">
+												<Trash2 class="h-3 w-3" />
+											</Button>
+										</div>
+									</div>
+								{/each}
+							{/if}
+						</div>
+						<p class="text-xs text-muted-foreground">
+							Changes apply after stack restart.
+						</p>
+					</Card.Content>
+				</Card.Root>
+
 				<!-- Webhooks -->
 				<Card.Root>
 					<Card.Header>

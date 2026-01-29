@@ -11,6 +11,8 @@
 		theme.set(currentTheme as 'light' | 'dark');
 	});
 
+	import { Toaster } from 'svelte-sonner';
+
 	let { children } = $props();
 </script>
 
@@ -23,5 +25,6 @@
 </svelte:head>
 
 <div class="min-h-screen bg-background font-sans antialiased" style="font-family: 'Inter', sans-serif;">
+	<Toaster position="top-right" richColors />
 	{@render children()}
 </div>

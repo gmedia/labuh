@@ -16,7 +16,8 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use crate::config::Config;
 use crate::handlers::auth::protected_auth_routes;
 use crate::handlers::{
-    auth_routes, container_routes, deploy_routes, deployment_log_routes, domain_routes, health_routes, image_routes,
+    auth_routes, container_routes, deploy_routes, deployment_log_routes, domain_routes,
+    environment_routes, health_routes, image_routes,
     project_routes, registry_routes, stack_routes, streaming_routes, system_routes,
 };
 use crate::middleware::auth_middleware;
@@ -79,11 +80,24 @@ async fn main() -> anyhow::Result<()> {
     // Create Caddy service
     let caddy_service = Arc::new(CaddyService::new(config.caddy_admin_api.clone()));
 
-    // Bootstrap Caddy if container service is available
+    // Bootstrap Caddy and Network if container service is available
     if let Some(ref container_svc) = container_service {
+        // Create and bootstrap network service
+        let network_service = crate::services::NetworkService::new(container_svc.clone());
+        tracing::info!("Ensuring labuh-network exists...");
+        if let Err(e) = network_service.ensure_labuh_network().await {
+            tracing::error!("Failed to create labuh-network: {}", e);
+        }
+
+        // Bootstrap Caddy
         tracing::info!("Bootstrapping Caddy...");
         if let Err(e) = caddy_service.bootstrap(container_svc).await {
             tracing::error!("Failed to bootstrap Caddy: {}. Ensure port 80/443 are free.", e);
+        }
+
+        // Connect Caddy to labuh-network
+        if let Err(e) = network_service.connect_container("labuh-caddy").await {
+            tracing::warn!("Could not connect Caddy to labuh-network: {}", e);
         }
     }
 
@@ -114,8 +128,11 @@ async fn main() -> anyhow::Result<()> {
 
     // Add container, stack, and deploy routes if container runtime is available
     if let Some(ref container_svc) = container_service {
+        // Create environment service
+        let env_service = Arc::new(crate::services::EnvironmentService::new(pool.clone()));
+
         // Create stack service
-        let stack_service = Arc::new(StackService::new(pool.clone(), container_svc.clone()));
+        let stack_service = Arc::new(StackService::new(pool.clone(), container_svc.clone(), env_service.clone()));
 
         // Create deploy service
         let deploy_service = Arc::new(DeployService::new(
@@ -132,6 +149,7 @@ async fn main() -> anyhow::Result<()> {
             .nest("/stacks", stack_routes(stack_service.clone()))
             .nest("/stacks", domain_routes(domain_service))
             .nest("/stacks", deployment_log_routes(deployment_log_service.clone(), stack_service.clone()))
+            .nest("/stacks", environment_routes(env_service, stack_service.clone()))
             .nest("/projects", deploy_routes(deploy_service));
 
         // Create webhook state and routes

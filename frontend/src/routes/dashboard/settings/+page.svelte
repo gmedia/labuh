@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -39,18 +40,24 @@
 		addingRegistry = true;
 		const result = await api.registries.add(newRegistry);
 		if (result.data) {
+			toast.success('Registry credential added');
 			registries = [result.data, ...registries];
 			newRegistry = { name: '', registry_url: '', username: '', password: '' };
 		} else {
-			alert(result.message || 'Failed to add registry');
+			toast.error(result.error || 'Failed to add registry');
 		}
 		addingRegistry = false;
 	}
 
 	async function removeRegistry(id: string) {
 		if (!confirm('Are you sure you want to remove this registry credential?')) return;
-		await api.registries.remove(id);
-		registries = registries.filter(r => r.id !== id);
+		const result = await api.registries.remove(id);
+		if (!result.error) {
+			toast.success('Registry credential removed');
+			registries = registries.filter(r => r.id !== id);
+		} else {
+			toast.error(result.error);
+		}
 	}
 </script>
 

@@ -307,4 +307,67 @@ impl CaddyService {
             domain
         )))
     }
+
+    /// Add a route with Basic Auth protection
+    pub async fn add_route_with_basic_auth(
+        &self,
+        domain: &str,
+        upstream: &str,
+        username: &str,
+        password_hash: &str,
+    ) -> Result<()> {
+        // Caddy expects bcrypt-hashed passwords for basic auth
+        let route_config = serde_json::json!({
+            "match": [{
+                "host": [domain]
+            }],
+            "handle": [
+                {
+                    "handler": "authentication",
+                    "providers": {
+                        "http_basic": {
+                            "accounts": [{
+                                "username": username,
+                                "password": password_hash
+                            }],
+                            "hash": {
+                                "algorithm": "bcrypt"
+                            }
+                        }
+                    }
+                },
+                {
+                    "handler": "reverse_proxy",
+                    "upstreams": [{
+                        "dial": upstream
+                    }]
+                }
+            ]
+        });
+
+        let url = format!(
+            "{}/config/apps/http/servers/srv0/routes",
+            self.admin_api_url
+        );
+
+        let response = self
+            .client
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .json(&route_config)
+            .send()
+            .await
+            .map_err(|e| AppError::CaddyApi(e.to_string()))?;
+
+        if !response.status().is_success() {
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AppError::CaddyApi(format!(
+                "Failed to add authenticated route: {}",
+                error_text
+            )));
+        }
+
+        tracing::info!("Added authenticated route: {} -> {} (user: {})", domain, upstream, username);
+        Ok(())
+    }
 }

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { api, type Stack } from '$lib/api';
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
@@ -34,25 +35,30 @@
 			compose_content: newStack.composeContent,
 		});
 		if (result.data) {
+			toast.success('Stack created successfully');
 			showCreateDialog = false;
 			newStack = { name: '', composeContent: '' };
 			await loadStacks();
 		} else {
-			alert(result.message || 'Failed to create stack');
+			toast.error(result.error || 'Failed to create stack');
 		}
 		creating = false;
 	}
 
 	async function startStack(id: string) {
 		actionLoading = id;
-		await api.stacks.start(id);
+		const result = await api.stacks.start(id);
+		if (!result.error) toast.success('Stack started');
+		else toast.error(result.error);
 		await loadStacks();
 		actionLoading = null;
 	}
 
 	async function stopStack(id: string) {
 		actionLoading = id;
-		await api.stacks.stop(id);
+		const result = await api.stacks.stop(id);
+		if (!result.error) toast.success('Stack stopped');
+		else toast.error(result.error);
 		await loadStacks();
 		actionLoading = null;
 	}
@@ -60,7 +66,9 @@
 	async function removeStack(id: string) {
 		if (!confirm('Are you sure you want to delete this stack and all its containers?')) return;
 		actionLoading = id;
-		await api.stacks.remove(id);
+		const result = await api.stacks.remove(id);
+		if (!result.error) toast.success('Stack removed');
+		else toast.error(result.error);
 		await loadStacks();
 		actionLoading = null;
 	}

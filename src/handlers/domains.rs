@@ -9,6 +9,7 @@ use crate::error::Result;
 use crate::middleware::auth::CurrentUser;
 use crate::models::{CreateDomain, DomainResponse};
 use crate::services::DomainService;
+use crate::services::domain::DnsVerificationResult;
 
 async fn list_domains(
     State(domain_service): State<Arc<DomainService>>,
@@ -48,9 +49,9 @@ async fn verify_domain(
     State(domain_service): State<Arc<DomainService>>,
     Extension(_current_user): Extension<CurrentUser>,
     Path((_stack_id, domain)): Path<(String, String)>,
-) -> Result<Json<serde_json::Value>> {
-    let verified = domain_service.verify_domain(&domain).await?;
-    Ok(Json(serde_json::json!({ "verified": verified })))
+) -> Result<Json<DnsVerificationResult>> {
+    let result = domain_service.verify_domain(&domain, None).await?;
+    Ok(Json(result))
 }
 
 pub fn domain_routes(domain_service: Arc<DomainService>) -> Router {

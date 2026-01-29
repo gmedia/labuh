@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { api, type Image } from '$lib/api';
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
@@ -10,7 +11,6 @@
 	let loading = $state(true);
 	let imageUrl = $state('');
 	let pulling = $state(false);
-	let pullError = $state('');
 	let actionLoading = $state<string | null>(null);
 
 	async function loadImages() {
@@ -27,13 +27,13 @@
 	async function pullImage() {
 		if (!imageUrl) return;
 		pulling = true;
-		pullError = '';
 		const result = await api.images.pull(imageUrl);
 		if (result.data) {
+			toast.success(`Image ${imageUrl} pulled successfully`);
 			imageUrl = '';
 			await loadImages();
 		} else {
-			pullError = result.message || 'Failed to pull image';
+			toast.error(result.error || 'Failed to pull image');
 		}
 		pulling = false;
 	}
@@ -43,8 +43,9 @@
 		actionLoading = id;
 		const result = await api.images.remove(id);
 		if (result.error) {
-			alert(result.message || 'Failed to remove image');
+			toast.error(result.error || 'Failed to remove image');
 		} else {
+			toast.success('Image removed');
 			await loadImages();
 		}
 		actionLoading = null;
@@ -89,9 +90,6 @@
 					{pulling ? 'Pulling...' : 'Pull'}
 				</Button>
 			</form>
-			{#if pullError}
-				<p class="mt-2 text-sm text-destructive">{pullError}</p>
-			{/if}
 			{#if pulling}
 				<p class="mt-2 text-sm text-muted-foreground">Pulling image... This may take a while.</p>
 			{/if}
