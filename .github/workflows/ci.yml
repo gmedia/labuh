@@ -36,19 +36,23 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+            backend/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock') }}
 
       - name: Check format
+        working-directory: backend
         run: cargo fmt --check
 
       - name: Clippy
+        working-directory: backend
         run: cargo clippy -- -D warnings
 
       - name: Build
+        working-directory: backend
         run: cargo build
 
       - name: Test
+        working-directory: backend
         run: cargo test
 
   check-frontend:

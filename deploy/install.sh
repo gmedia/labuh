@@ -27,9 +27,9 @@ echo "Creating installation directory..."
 mkdir -p "$INSTALL_DIR"
 
 # Copy binary
-if [ -f "./target/release/labuh" ]; then
+if [ -f "./backend/target/release/labuh" ]; then
     echo "Copying release binary..."
-    cp ./target/release/labuh "$INSTALL_DIR/"
+    cp ./backend/target/release/labuh "$INSTALL_DIR/"
 elif [ -f "./labuh" ]; then
     echo "Copying binary..."
     cp ./labuh "$INSTALL_DIR/"
@@ -39,19 +39,19 @@ else
 fi
 
 # Copy .env file if exists
-if [ -f "./.env" ]; then
+if [ -f "./backend/.env" ]; then
     echo "Copying .env file..."
-    cp ./.env "$INSTALL_DIR/.env"
-elif [ -f "./.env.example" ]; then
+    cp ./backend/.env "$INSTALL_DIR/.env"
+elif [ -f "./backend/.env.example" ]; then
     echo "Copying .env.example as .env..."
-    cp ./.env.example "$INSTALL_DIR/.env"
+    cp ./backend/.env.example "$INSTALL_DIR/.env"
     echo "⚠️  Please edit /opt/labuh/.env with your configuration"
 fi
 
 # Copy Caddyfile if exists
-if [ -f "./Caddyfile" ]; then
+if [ -f "./backend/Caddyfile" ]; then
     echo "Copying Caddyfile..."
-    cp ./Caddyfile "$INSTALL_DIR/Caddyfile"
+    cp ./backend/Caddyfile "$INSTALL_DIR/Caddyfile"
 elif [ ! -f "$INSTALL_DIR/Caddyfile" ] || [ -d "$INSTALL_DIR/Caddyfile" ]; then
     echo "Creating default Caddyfile..."
     rm -rf "$INSTALL_DIR/Caddyfile"

@@ -46,18 +46,19 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-x86-${{ hashFiles('**/Cargo.lock') }}
+            backend/target/
+          key: ${{ runner.os }}-cargo-x86-${{ hashFiles('backend/Cargo.lock') }}
 
       - name: Build
+        working-directory: backend
         run: cargo build --release
 
       - name: Package
         run: |
           mkdir -p dist
-          cp target/release/labuh dist/
-          cp -r migrations dist/ 2>/dev/null || true
-          cp .env.example dist/ 2>/dev/null || true
+          cp backend/target/release/labuh dist/
+          cp -r backend/migrations dist/ 2>/dev/null || true
+          cp backend/.env.example dist/ 2>/dev/null || true
           mkdir -p dist/frontend
           cp -r frontend/build dist/frontend/
           cp -r deploy dist/
@@ -97,21 +98,22 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-arm64-${{ hashFiles('**/Cargo.lock') }}
+            backend/target/
+          key: ${{ runner.os }}-cargo-arm64-${{ hashFiles('backend/Cargo.lock') }}
 
       - name: Install cross
         run: cargo install cross --git https://github.com/cross-rs/cross
 
       - name: Build with cross
+        working-directory: backend
         run: cross build --release --target aarch64-unknown-linux-gnu
 
       - name: Package
         run: |
           mkdir -p dist
-          cp target/aarch64-unknown-linux-gnu/release/labuh dist/
-          cp -r migrations dist/ 2>/dev/null || true
-          cp .env.example dist/ 2>/dev/null || true
+          cp backend/target/aarch64-unknown-linux-gnu/release/labuh dist/
+          cp -r backend/migrations dist/ 2>/dev/null || true
+          cp backend/.env.example dist/ 2>/dev/null || true
           mkdir -p dist/frontend
           cp -r frontend/build dist/frontend/
           cp -r deploy dist/

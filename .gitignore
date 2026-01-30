@@ -1,3 +1,8 @@
 /target
-labuh.db
-.env
+/backend/target
+/backend/labuh.db
+/backend/.env
+/backend/Caddyfile
+node_modules
+dist
+.DS_Store
