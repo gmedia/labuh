@@ -5,8 +5,8 @@ use sqlx::SqlitePool;
 use std::sync::Arc;
 use uuid::Uuid;
 
+use crate::domain::models::Domain;
 use crate::error::{AppError, Result};
-use crate::models::Domain;
 use crate::services::CaddyService;
 
 pub struct DomainService {

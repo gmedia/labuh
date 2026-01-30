@@ -1,9 +1,16 @@
+#![allow(dead_code)]
 use chrono::Utc;
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
+use crate::domain::models::DeploymentLog;
 use crate::error::Result;
-use crate::models::deployment_log::{CreateDeploymentLog, DeploymentLog};
+
+#[derive(serde::Deserialize)]
+pub struct CreateDeploymentLog {
+    pub stack_id: String,
+    pub trigger_type: String,
+}
 
 pub struct DeploymentLogService {
     pool: SqlitePool,
@@ -18,27 +25,30 @@ impl DeploymentLogService {
         let id = Uuid::new_v4().to_string();
         let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
+        let log = DeploymentLog {
+            id: id.clone(),
+            stack_id: input.stack_id,
+            trigger_type: input.trigger_type,
+            status: "pending".to_string(),
+            logs: None,
+            started_at: now,
+            finished_at: None,
+        };
+
         sqlx::query(
             r#"
-            INSERT INTO deployment_logs (id, stack_id, trigger_type, status, started_at)
-            VALUES (?, ?, ?, 'pending', ?)
+            INSERT INTO deployment_logs (id, stack_id, trigger_type, status, logs, started_at)
+            VALUES (?, ?, ?, ?, ?, ?)
             "#,
         )
-        .bind(&id)
-        .bind(&input.stack_id)
-        .bind(&input.trigger_type)
-        .bind(&now)
+        .bind(&log.id)
+        .bind(&log.stack_id)
+        .bind(&log.trigger_type)
+        .bind(&log.status)
+        .bind(&log.logs)
+        .bind(&log.started_at)
         .execute(&self.pool)
         .await?;
-
-        self.get(&id).await
-    }
-
-    pub async fn get(&self, id: &str) -> Result<DeploymentLog> {
-        let log = sqlx::query_as::<_, DeploymentLog>("SELECT * FROM deployment_logs WHERE id = ?")
-            .bind(id)
-            .fetch_one(&self.pool)
-            .await?;
 
         Ok(log)
     }
@@ -64,32 +74,24 @@ impl DeploymentLogService {
         let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
         sqlx::query(
-            "UPDATE deployment_logs SET status = ?, logs = ?, finished_at = ? WHERE id = ?",
+            r#"
+            UPDATE deployment_logs
+            SET status = ?, logs = ?, finished_at = ?
+            WHERE id = ?
+            "#,
         )
         .bind(status)
         .bind(logs)
-        .bind(&now)
+        .bind(now)
         .bind(id)
         .execute(&self.pool)
         .await?;
 
-        self.get(id).await
-    }
-
-    #[allow(dead_code)]
-    pub async fn append_log(&self, id: &str, log_line: &str) -> Result<()> {
-        let current = self.get(id).await?;
-        let new_logs = match current.logs {
-            Some(existing) => format!("{}\n{}", existing, log_line),
-            None => log_line.to_string(),
-        };
-
-        sqlx::query("UPDATE deployment_logs SET logs = ? WHERE id = ?")
-            .bind(&new_logs)
+        let log = sqlx::query_as::<_, DeploymentLog>("SELECT * FROM deployment_logs WHERE id = ?")
             .bind(id)
-            .execute(&self.pool)
+            .fetch_one(&self.pool)
             .await?;
 
-        Ok(())
+        Ok(log)
     }
 }

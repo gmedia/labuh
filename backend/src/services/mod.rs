@@ -1,6 +1,5 @@
 pub mod auth;
 pub mod caddy;
-pub mod compose;
 pub mod container;
 pub mod deployment_log;
 pub mod domain;

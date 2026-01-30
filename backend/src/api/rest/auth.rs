@@ -5,9 +5,9 @@ use axum::{
 };
 use std::sync::Arc;
 
+use crate::api::middleware::auth::CurrentUser;
+use crate::domain::models::{AuthResponse, CreateUser, LoginRequest, UserResponse};
 use crate::error::Result;
-use crate::middleware::auth::CurrentUser;
-use crate::models::{AuthResponse, CreateUser, LoginRequest, UserResponse};
 use crate::services::AuthService;
 
 async fn register(

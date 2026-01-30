@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use argon2::{
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
@@ -9,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
+use crate::domain::models::{AuthResponse, CreateUser, LoginRequest, User};
 use crate::error::{AppError, Result};
-use crate::models::{AuthResponse, CreateUser, LoginRequest, User};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {

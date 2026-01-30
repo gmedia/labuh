@@ -5,27 +5,25 @@ use axum::{
 };
 use std::sync::Arc;
 
+use crate::api::middleware::auth::CurrentUser;
+use crate::domain::models::{CreateRegistryCredential, RegistryCredentialResponse};
 use crate::error::Result;
-use crate::middleware::auth::CurrentUser;
-use crate::models::{CreateRegistryCredential, RegistryCredentialResponse};
-use crate::services::RegistryService;
+use crate::usecase::registry::RegistryUsecase;
 
 async fn list_credentials(
-    State(registry_service): State<Arc<RegistryService>>,
+    State(usecase): State<Arc<RegistryUsecase>>,
     Extension(current_user): Extension<CurrentUser>,
 ) -> Result<Json<Vec<RegistryCredentialResponse>>> {
-    let credentials = registry_service.list_credentials(&current_user.id).await?;
-    let responses: Vec<RegistryCredentialResponse> =
-        credentials.into_iter().map(Into::into).collect();
-    Ok(Json(responses))
+    let credentials = usecase.list_credentials(&current_user.id).await?;
+    Ok(Json(credentials))
 }
 
 async fn add_credential(
-    State(registry_service): State<Arc<RegistryService>>,
+    State(usecase): State<Arc<RegistryUsecase>>,
     Extension(current_user): Extension<CurrentUser>,
     Json(request): Json<CreateRegistryCredential>,
 ) -> Result<Json<RegistryCredentialResponse>> {
-    let credential = registry_service
+    let credential = usecase
         .add_credential(
             &current_user.id,
             &request.name,
@@ -34,24 +32,22 @@ async fn add_credential(
             &request.password,
         )
         .await?;
-    Ok(Json(credential.into()))
+    Ok(Json(credential))
 }
 
 async fn remove_credential(
-    State(registry_service): State<Arc<RegistryService>>,
+    State(usecase): State<Arc<RegistryUsecase>>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<String>,
 ) -> Result<Json<serde_json::Value>> {
-    registry_service
-        .remove_credential(&id, &current_user.id)
-        .await?;
+    usecase.remove_credential(&id, &current_user.id).await?;
     Ok(Json(serde_json::json!({ "status": "removed" })))
 }
 
-pub fn registry_routes(registry_service: Arc<RegistryService>) -> Router {
+pub fn registry_routes(usecase: Arc<RegistryUsecase>) -> Router {
     Router::new()
         .route("/", get(list_credentials))
         .route("/", post(add_credential))
         .route("/{id}", delete(remove_credential))
-        .with_state(registry_service)
+        .with_state(usecase)
 }

@@ -5,9 +5,9 @@ use axum::{
 };
 use std::sync::Arc;
 
+use crate::api::middleware::auth::CurrentUser;
+use crate::domain::models::{CreateDomain, DomainResponse};
 use crate::error::Result;
-use crate::middleware::auth::CurrentUser;
-use crate::models::{CreateDomain, DomainResponse};
 use crate::services::domain::DnsVerificationResult;
 use crate::services::DomainService;
 

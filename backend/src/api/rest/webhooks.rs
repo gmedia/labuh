@@ -7,14 +7,13 @@ use serde_json::json;
 use std::sync::Arc;
 
 use crate::{
-    error::Result, models::CreateDeploymentLog, services::deployment_log::DeploymentLogService,
-    services::stack::StackService,
+    error::Result, usecase::deployment_log::DeploymentLogUsecase, usecase::stack::StackUsecase,
 };
 
 #[derive(Clone)]
 pub struct WebhookState {
-    pub stack_service: Arc<StackService>,
-    pub deployment_log_service: Arc<DeploymentLogService>,
+    pub stack_usecase: Arc<StackUsecase>,
+    pub deployment_log_usecase: Arc<DeploymentLogUsecase>,
 }
 
 #[derive(serde::Deserialize)]
@@ -29,35 +28,32 @@ pub async fn trigger_deploy(
 ) -> Result<impl IntoResponse> {
     // 1. Validate token and get stack
     let stack = state
-        .stack_service
+        .stack_usecase
         .validate_webhook_token(&stack_id, &token)
         .await?;
 
     // 2. Create deployment log entry
     let deployment_log = state
-        .deployment_log_service
-        .create(CreateDeploymentLog {
-            stack_id: stack.id.clone(),
-            trigger_type: "webhook".to_string(),
-        })
+        .deployment_log_usecase
+        .create_log(&stack.id, "webhook")
         .await?;
 
     // 3. Trigger deployment
     // If service query param is present, only redeploy that specific service
     let result = if let Some(service_name) = &query.service {
         state
-            .stack_service
+            .stack_usecase
             .redeploy_service(&stack.id, service_name, &stack.user_id)
             .await
     } else {
-        state.stack_service.redeploy_stack(&stack.id).await
+        state.stack_usecase.redeploy_stack(&stack.id).await
     };
 
     match result {
         Ok(_) => {
-            // Log success (redeploy doesn't return container ID, it manages multiple)
+            // Log success
             state
-                .deployment_log_service
+                .deployment_log_usecase
                 .update_status(
                     &deployment_log.id,
                     "success",
@@ -74,7 +70,7 @@ pub async fn trigger_deploy(
         Err(e) => {
             // Log failure
             state
-                .deployment_log_service
+                .deployment_log_usecase
                 .update_status(
                     &deployment_log.id,
                     "failed",

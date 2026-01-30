@@ -5,8 +5,8 @@
 use serde::Deserialize;
 use std::collections::HashMap;
 
+use crate::domain::runtime::ContainerConfig;
 use crate::error::{AppError, Result};
-use crate::services::container::CreateContainerRequest;
 
 /// Parsed Docker Compose file structure
 #[derive(Debug, Deserialize)]
@@ -95,6 +95,7 @@ pub struct ParsedCompose {
 
 #[derive(Debug)]
 pub struct ParsedService {
+    pub labels: std::collections::HashMap<String, String>,
     pub name: String,
     pub image: String,
     pub env: Vec<String>,
@@ -248,6 +249,7 @@ pub fn parse_compose(yaml_content: &str) -> Result<ParsedCompose> {
             ports,
             volumes,
             depends_on: service.depends_on,
+            labels: service.labels,
         });
     }
 
@@ -272,13 +274,39 @@ pub fn service_to_container_request(
     service: &ParsedService,
     stack_id: &str,
     stack_name: &str,
-) -> CreateContainerRequest {
-    let mut labels = HashMap::new();
+) -> ContainerConfig {
+    let mut labels = service.labels.clone();
     labels.insert("labuh.stack.id".to_string(), stack_id.to_string());
     labels.insert("labuh.stack.name".to_string(), stack_name.to_string());
     labels.insert("labuh.service.name".to_string(), service.name.clone());
 
-    CreateContainerRequest {
+    // Convert port HashMap<container, host> to Vec<"host:container">
+    let ports: Option<Vec<String>> = if service.ports.is_empty() {
+        None
+    } else {
+        Some(
+            service
+                .ports
+                .iter()
+                .map(|(c, h)| format!("{}:{}", h, c))
+                .collect(),
+        )
+    };
+
+    // Convert volume HashMap<host, container> to Vec<"host:container">
+    let volumes: Option<Vec<String>> = if service.volumes.is_empty() {
+        None
+    } else {
+        Some(
+            service
+                .volumes
+                .iter()
+                .map(|(h, c)| format!("{}:{}", h, c))
+                .collect(),
+        )
+    };
+
+    ContainerConfig {
         name: format!("{}-{}", stack_name, service.name),
         image: service.image.clone(),
         env: if service.env.is_empty() {
@@ -286,17 +314,8 @@ pub fn service_to_container_request(
         } else {
             Some(service.env.clone())
         },
-        ports: if service.ports.is_empty() {
-            None
-        } else {
-            Some(service.ports.clone())
-        },
-        volumes: if service.volumes.is_empty() {
-            None
-        } else {
-            Some(service.volumes.clone())
-        },
-        network: Some("labuh-network".to_string()),
+        ports,
+        volumes,
         labels: Some(labels),
     }
 }

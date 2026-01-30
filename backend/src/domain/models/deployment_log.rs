@@ -13,6 +13,7 @@ pub struct DeploymentLog {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct CreateDeploymentLog {
     pub stack_id: String,
     pub trigger_type: String,

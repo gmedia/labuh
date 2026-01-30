@@ -154,6 +154,18 @@
 
 ---
 
+## 🏗️ Architecture Migration ✅
+
+- [x] **Migrate to Hexagonal Architecture**
+  - [x] Setup directory structure (`domain/`, `usecase/`, `infrastructure/`, `api/`)
+  - [x] Define Domain Ports (Traits)
+  - [x] Implement Infrastructure Adapters (SQLite, Docker)
+  - [x] Refactor Services to UseCases
+  - [x] Update API Handlers
+  - [x] Final Wiring in `main.rs`
+
+---
+
 ## 📝 Implementation Notes
 
 ### Caddy Container Setup

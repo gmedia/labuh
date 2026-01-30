@@ -71,6 +71,43 @@ pub struct CreateContainerRequest {
     pub network: Option<String>,
     pub labels: Option<HashMap<String, String>>,
 }
+impl From<crate::domain::runtime::ContainerConfig> for CreateContainerRequest {
+    fn from(config: crate::domain::runtime::ContainerConfig) -> Self {
+        let mut ports = HashMap::new();
+        if let Some(p_vec) = config.ports {
+            for p in p_vec {
+                let parts: Vec<&str> = p.split(':').collect();
+                if parts.len() == 2 {
+                    ports.insert(parts[1].to_string(), parts[0].to_string());
+                }
+            }
+        }
+
+        let mut volumes = HashMap::new();
+        if let Some(v_vec) = config.volumes {
+            for v in v_vec {
+                let parts: Vec<&str> = v.split(':').collect();
+                if parts.len() == 2 {
+                    volumes.insert(parts[0].to_string(), parts[1].to_string());
+                }
+            }
+        }
+
+        Self {
+            name: config.name,
+            image: config.image,
+            env: config.env,
+            ports: if ports.is_empty() { None } else { Some(ports) },
+            volumes: if volumes.is_empty() {
+                None
+            } else {
+                Some(volumes)
+            },
+            network: Some("labuh-network".to_string()),
+            labels: config.labels,
+        }
+    }
+}
 
 pub struct ContainerService {
     pub docker: Arc<Docker>,

@@ -47,3 +47,27 @@ impl From<Stack> for StackResponse {
         }
     }
 }
+
+#[derive(Debug, Serialize)]
+pub struct StackHealth {
+    pub status: String,
+    pub total: usize,
+    pub running: usize,
+    pub stopped: usize,
+    pub unhealthy: usize,
+    pub containers: Vec<ContainerHealth>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ContainerHealth {
+    pub id: String,
+    pub name: String,
+    pub state: String,
+    pub status: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct StackLogEntry {
+    pub container: String,
+    pub message: String,
+}

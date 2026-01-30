@@ -1,10 +1,11 @@
+mod api;
 mod config;
 mod db;
+mod domain;
 mod error;
-mod handlers;
-mod middleware;
-mod models;
+mod infrastructure;
 mod services;
+mod usecase;
 
 use std::sync::Arc;
 
@@ -14,13 +15,13 @@ use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::config::Config;
-use crate::handlers::auth::protected_auth_routes;
-use crate::handlers::{
+use crate::api::middleware::auth_middleware;
+use crate::api::rest::auth::protected_auth_routes;
+use crate::api::rest::{
     auth_routes, container_routes, deployment_log_routes, domain_routes, environment_routes,
     health_routes, image_routes, registry_routes, stack_routes, system_routes,
 };
-use crate::middleware::auth_middleware;
+use crate::config::Config;
 use crate::services::{
     AuthService, CaddyService, ContainerService, DeploymentLogService, DomainService,
     RegistryService, StackService,
@@ -118,60 +119,100 @@ async fn main() -> anyhow::Result<()> {
             axum::http::header::ACCEPT,
         ]);
 
-    // Create domain service
+    // Create system components (POC)
+    let system_provider = Arc::new(crate::infrastructure::linux_system::LinuxSystemProvider::new());
+    let system_usecase = Arc::new(crate::usecase::system::SystemUsecase::new(system_provider));
+
+    // Create other services
     let domain_service = Arc::new(DomainService::new(pool.clone(), caddy_service.clone()));
-
-    // Create registry service
-    let registry_service = Arc::new(RegistryService::new(pool.clone()));
-
-    // Create deployment log service
-    let deployment_log_service = Arc::new(DeploymentLogService::new(pool.clone()));
+    let _registry_service = Arc::new(RegistryService::new(pool.clone()));
+    let _deployment_log_service = Arc::new(DeploymentLogService::new(pool.clone()));
 
     // Protected routes (require authentication)
-    let mut protected_routes = Router::new()
-        .merge(protected_auth_routes())
-        .nest("/registries", registry_routes(registry_service));
+    let mut protected_routes = Router::new().merge(protected_auth_routes());
 
     // Webhook routes (only available if container service is available)
     let mut webhook_routes: Option<Router> = None;
 
     // Add container, stack, and deploy routes if container runtime is available
     if let Some(ref container_svc) = container_service {
-        // Create environment service
-        let env_service = Arc::new(crate::services::EnvironmentService::new(pool.clone()));
-
-        // Create stack service
-        let stack_service = Arc::new(StackService::new(
-            pool.clone(),
-            container_svc.clone(),
-            env_service.clone(),
+        // Create environment components (New Architecture)
+        let env_repo = Arc::new(
+            crate::infrastructure::sqlite::environment::SqliteEnvironmentRepository::new(
+                pool.clone(),
+            ),
+        );
+        let env_usecase = Arc::new(crate::usecase::environment::EnvironmentUsecase::new(
+            env_repo,
         ));
 
+        // Create registry components (New Architecture)
+        let registry_repo = Arc::new(
+            crate::infrastructure::sqlite::registry::SqliteRegistryRepository::new(pool.clone()),
+        );
+        let registry_usecase = Arc::new(crate::usecase::registry::RegistryUsecase::new(
+            registry_repo,
+        ));
+
+        // Create stack components (New Architecture)
+        let stack_repo = Arc::new(
+            crate::infrastructure::sqlite::stack::SqliteStackRepository::new(pool.clone()),
+        );
+        let runtime_adapter =
+            Arc::new(crate::infrastructure::docker::runtime::DockerRuntimeAdapter::new().await?);
+        let stack_usecase = Arc::new(crate::usecase::stack::StackUsecase::new(
+            stack_repo.clone(),
+            runtime_adapter.clone(),
+            env_usecase.clone(),
+        ));
+
+        // Create stack service (Legacy)
+        let _stack_service = Arc::new(StackService::new(
+            pool.clone(),
+            container_svc.clone(),
+            Arc::new(crate::services::EnvironmentService::new(pool.clone())),
+        ));
+
+        // Create deployment log components (New Architecture)
+        let log_repo = Arc::new(
+            crate::infrastructure::sqlite::deployment_log::SqliteDeploymentLogRepository::new(
+                pool.clone(),
+            ),
+        );
+        let log_usecase = Arc::new(crate::usecase::deployment_log::DeploymentLogUsecase::new(
+            log_repo,
+        ));
+
+        // Create deployment log service (Legacy)
+        let _deployment_log_service =
+            Arc::new(crate::services::DeploymentLogService::new(pool.clone()));
+
         protected_routes = protected_routes
+            .nest("/registries", registry_routes(registry_usecase))
             .nest("/containers", container_routes(container_svc.clone()))
             .nest("/images", image_routes(container_svc.clone()))
-            .nest("/stacks", stack_routes(stack_service.clone()))
+            .nest("/stacks", stack_routes(stack_usecase.clone()))
             .nest("/stacks", domain_routes(domain_service))
             .nest(
                 "/stacks",
-                deployment_log_routes(deployment_log_service.clone(), stack_service.clone()),
+                deployment_log_routes(log_usecase.clone(), stack_usecase.clone()),
             )
             .nest(
                 "/stacks",
-                environment_routes(env_service, stack_service.clone()),
+                environment_routes(env_usecase, stack_usecase.clone()),
             );
 
         // Create webhook state and routes
-        let webhook_state = handlers::webhooks::WebhookState {
-            stack_service: stack_service.clone(),
-            deployment_log_service: deployment_log_service.clone(),
+        let webhook_state = api::rest::webhooks::WebhookState {
+            stack_usecase: stack_usecase.clone(),
+            deployment_log_usecase: log_usecase.clone(),
         };
 
         webhook_routes = Some(
             Router::new()
                 .route(
                     "/deploy/{stack_id}/{token}",
-                    axum::routing::post(handlers::webhooks::trigger_deploy),
+                    axum::routing::post(api::rest::webhooks::trigger_deploy),
                 )
                 .with_state(webhook_state),
         );
@@ -185,7 +226,7 @@ async fn main() -> anyhow::Result<()> {
     // Build application router
     let mut app = Router::new()
         .nest("/api", health_routes())
-        .nest("/api/system", system_routes())
+        .nest("/api/system", system_routes(system_usecase))
         .nest("/api/auth", auth_routes(auth_service.clone()));
 
     if let Some(webhook_router) = webhook_routes {
