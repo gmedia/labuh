@@ -36,7 +36,7 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            backend/target/
+            target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock') }}
 
       - name: Check format
