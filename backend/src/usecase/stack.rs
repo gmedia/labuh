@@ -1,6 +1,7 @@
 use chrono::Utc;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
+use std::path::Path;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -22,6 +23,7 @@ pub struct StackUsecase {
     registry_usecase: Arc<RegistryUsecase>,
     resource_repo: Arc<dyn ResourceRepository>,
     team_repo: Arc<dyn TeamRepository>,
+    git_service: Arc<crate::infrastructure::git::GitService>,
 }
 
 impl StackUsecase {
@@ -40,6 +42,7 @@ impl StackUsecase {
             registry_usecase,
             resource_repo,
             team_repo,
+            git_service: Arc::new(crate::infrastructure::git::GitService::new()),
         }
     }
 
@@ -74,8 +77,6 @@ impl StackUsecase {
         let _role = self.team_repo.get_user_role(team_id, user_id).await?
             .ok_or(AppError::Forbidden("Access denied".to_string()))?;
 
-        let parsed = parse_compose(compose_content)?;
-
         let id = Uuid::new_v4().to_string();
         let now = Utc::now().to_rfc3339();
         let token: String = rand::thread_rng()
@@ -96,18 +97,116 @@ impl StackUsecase {
             health_check_path: None,
             health_check_interval: 30,
             last_stable_images: None,
+            git_url: None,
+            git_branch: None,
+            last_commit_hash: None,
             created_at: now.clone(),
             updated_at: now,
         };
 
         self.repo.create(stack.clone()).await?;
 
+        self.build_stack_services(&stack, compose_content).await?;
+
+        self.repo.update_status(&id, "stopped").await?;
+        self.get_stack(&id, user_id).await
+    }
+
+    pub async fn create_stack_from_git(
+        &self,
+        name: &str,
+        git_url: &str,
+        git_branch: &str,
+        compose_path: &str,
+        user_id: &str,
+        team_id: &str,
+    ) -> Result<Stack> {
+        let _role = self.team_repo.get_user_role(team_id, user_id).await?
+            .ok_or(AppError::Forbidden("Access denied".to_string()))?;
+
+        // 1. Setup git directory
+        let id = Uuid::new_v4().to_string();
+        let target_dir = format!("backend/data/git/{}", id);
+
+        // 2. Clone repository
+        let commit_hash = self.git_service.clone_or_pull(git_url, git_branch, &target_dir).await?;
+
+        // 3. Read compose content
+        let full_compose_path = Path::new(&target_dir).join(compose_path);
+        let compose_content = tokio::fs::read_to_string(full_compose_path).await
+            .map_err(|e| AppError::BadRequest(format!("Failed to read compose file from repo: {}", e)))?;
+
+        // 4. Create stack record
+        let now = Utc::now().to_rfc3339();
+        let token: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(32)
+            .map(char::from)
+            .collect();
+
+        let stack = Stack {
+            id: id.clone(),
+            name: name.to_string(),
+            user_id: user_id.to_string(),
+            team_id: team_id.to_string(),
+            compose_content: Some(compose_content.clone()),
+            status: "creating".to_string(),
+            webhook_token: Some(token),
+            cron_schedule: None,
+            health_check_path: None,
+            health_check_interval: 30,
+            last_stable_images: None,
+            git_url: Some(git_url.to_string()),
+            git_branch: Some(git_branch.to_string()),
+            last_commit_hash: Some(commit_hash),
+            created_at: now.clone(),
+            updated_at: now,
+        };
+
+        self.repo.create(stack.clone()).await?;
+
+        // 5. Build services
+        self.build_stack_services(&stack, &compose_content).await?;
+
+        self.repo.update_status(&id, "stopped").await?;
+        self.get_stack(&id, user_id).await
+    }
+
+    pub async fn sync_git(&self, id: &str, user_id: &str) -> Result<()> {
+        let stack = self.get_stack(id, user_id).await?;
+        let git_url = stack.git_url.clone().ok_or_else(|| AppError::BadRequest("Stack not linked to Git".to_string()))?;
+        let git_branch = stack.git_branch.clone().unwrap_or_else(|| "main".to_string());
+
+        let target_dir = format!("backend/data/git/{}", id);
+
+        // 1. Pull latest
+        let commit_hash = self.git_service.clone_or_pull(&git_url, &git_branch, &target_dir).await?;
+
+        // 2. Extract compose path (fixed to docker-compose.yml for now, or we could store it)
+        let compose_path = "docker-compose.yml";
+        let full_compose_path = Path::new(&target_dir).join(compose_path);
+        let compose_content = tokio::fs::read_to_string(full_compose_path).await
+            .map_err(|e| AppError::BadRequest(format!("Failed to read compose file from repo: {}", e)))?;
+
+        // 3. Update stack record
+        self.repo.update_compose(id, &compose_content).await?;
+        self.repo.update_git_info(id, &commit_hash).await?;
+
+        // 4. Redeploy
+        self.redeploy_stack(id).await?;
+
+        Ok(())
+    }
+
+    async fn build_stack_services(&self, stack: &Stack, compose_content: &str) -> Result<()> {
+        let parsed = parse_compose(compose_content)?;
+
         for service in &parsed.services {
-            let mut config = service_to_container_request(service, &id, name);
+            let mut config = service_to_container_request(service, &stack.id, &stack.name);
 
             let db_env = self
                 .environment_usecase
-                .get_env_map_for_container(&id, &service.name)
+                .get_env_map_for_container(&stack.id, &service.name)
                 .await
                 .unwrap_or_default();
 
@@ -132,12 +231,10 @@ impl StackUsecase {
                 .get_credentials_for_image_internal(&stack.team_id, &config.image)
                 .await?;
             self.runtime.pull_image(&config.image, creds).await?;
-            self.apply_resource_limits(&id, &service.name, &mut config).await?;
+            self.apply_resource_limits(&stack.id, &service.name, &mut config).await?;
             self.runtime.create_container(config).await?;
         }
-
-        self.repo.update_status(&id, "stopped").await?;
-        self.get_stack(&id, user_id).await
+        Ok(())
     }
 
     pub async fn start_stack(&self, id: &str, user_id: &str) -> Result<()> {
@@ -655,6 +752,61 @@ impl StackUsecase {
         self.verify_container_ownership(container_id, user_id)
             .await?;
         self.runtime.get_stats(container_id).await
+    }
+
+    pub async fn get_stack_backup(
+        &self,
+        id: &str,
+        user_id: &str,
+    ) -> Result<crate::domain::models::stack::StackBackup> {
+        let stack = self.get_stack(id, user_id).await?;
+        let env_vars = self.environment_usecase.get_raw_vars(&stack.id).await?;
+
+        let backup_envs = env_vars
+            .into_iter()
+            .map(|e| crate::domain::models::stack::BackupEnvVar {
+                container_name: e.container_name,
+                key: e.key,
+                value: e.value,
+                is_secret: e.is_secret,
+            })
+            .collect();
+
+        Ok(crate::domain::models::stack::StackBackup {
+            name: stack.name,
+            compose_content: stack.compose_content.unwrap_or_default(),
+            env_vars: backup_envs,
+        })
+    }
+
+    pub async fn restore_stack(
+        &self,
+        backup: crate::domain::models::stack::StackBackup,
+        user_id: &str,
+        team_id: &str,
+    ) -> Result<Stack> {
+        // 1. Create the stack
+        let stack = self
+            .create_stack(&backup.name, &backup.compose_content, user_id, team_id)
+            .await?;
+
+        // 2. Restore env vars
+        for env in backup.env_vars {
+            self.environment_usecase
+                .set_var(
+                    &stack.id,
+                    &env.container_name,
+                    &env.key,
+                    &env.value,
+                    env.is_secret,
+                )
+                .await?;
+        }
+
+        // 3. Redeploy to apply the newly set env vars
+        self.redeploy_stack(&stack.id).await?;
+
+        self.get_stack(&stack.id, user_id).await
     }
 
     async fn apply_resource_limits(

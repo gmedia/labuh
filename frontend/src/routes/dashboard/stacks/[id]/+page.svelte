@@ -14,7 +14,7 @@
 		ArrowLeft, Play, Square, Trash2, RefreshCw, Terminal, Layers,
 		Container as ContainerIcon, FileCode, Save, CheckCircle, XCircle,
 		Globe, History, Webhook, Copy, AlertCircle, RotateCcw, Activity, Settings, Eye, EyeOff, Plus, ExternalLink,
-		Cpu, HardDrive, Gauge, Users
+		Cpu, HardDrive, Gauge, Users, Download, Upload, GitBranch
 	} from '@lucide/svelte';
 	import ResourceChart from '$lib/components/ResourceChart.svelte';
 	import { activeTeam } from '$lib/stores';
@@ -299,6 +299,50 @@
 		}
 	}
 
+	async function exportStack() {
+		if (!stack) return;
+		actionLoading = true;
+		try {
+			const result = await api.stacks.backup(stack.id);
+			if (result.data) {
+				const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = `labuh-backup-${stack.name}-${new Date().toISOString().split('T')[0]}.json`;
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				URL.revokeObjectURL(url);
+				toast.success('Backup downloaded');
+			} else {
+				toast.error(result.message || result.error || 'Failed to export stack');
+			}
+		} catch (e: any) {
+			toast.error(e.message || 'Failed to export stack');
+		} finally {
+			actionLoading = false;
+		}
+	}
+
+	async function syncGit() {
+		if (!stack) return;
+		actionLoading = true;
+		try {
+			const result = await api.stacks.syncGit(stack.id);
+			if (result.data) {
+				toast.success('Stack synced with Git and redeployed');
+				await Promise.all([loadStack(), loadContainers(), loadHealth()]);
+			} else {
+				toast.error(result.message || result.error || 'Failed to sync Git');
+			}
+		} catch (e: any) {
+			toast.error(e.message || 'Failed to sync Git');
+		} finally {
+			actionLoading = false;
+		}
+	}
+
 	async function addDomain() {
 		if (!newDomain || !newDomainContainer || !stack) return;
 		addingDomain = true;
@@ -503,6 +547,14 @@
 									</Button>
 									<Button variant="outline" size="sm" onclick={() => showComposeEditor = !showComposeEditor}>
 										<FileCode class="h-4 w-4 mr-1" /> Edit
+									</Button>
+									{#if stack.git_url}
+										<Button variant="outline" size="sm" onclick={syncGit} disabled={actionLoading} title="Sync with Git and redeploy">
+											<GitBranch class="h-4 w-4 mr-1 {actionLoading ? 'animate-spin' : ''}" /> Sync
+										</Button>
+									{/if}
+									<Button variant="outline" size="sm" onclick={exportStack} disabled={actionLoading} title="Export stack as JSON backup">
+										<Download class="h-4 w-4 mr-1" /> Export
 									</Button>
 									<Button variant="outline" size="sm" onclick={removeStack} disabled={actionLoading}>
 										<Trash2 class="h-4 w-4 text-destructive" />

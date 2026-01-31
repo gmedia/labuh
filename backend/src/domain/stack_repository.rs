@@ -20,6 +20,7 @@ pub trait StackRepository: Send + Sync {
         health_interval: i32,
     ) -> Result<()>;
     async fn update_last_stable_images(&self, id: &str, images: Option<String>) -> Result<()>;
+    async fn update_git_info(&self, id: &str, commit_hash: &str) -> Result<()>;
     async fn delete(&self, id: &str) -> Result<()>;
     async fn validate_webhook_token(&self, id: &str, token: &str) -> Result<Stack>;
 }

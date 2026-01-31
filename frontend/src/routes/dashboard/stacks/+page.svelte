@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import { toast } from 'svelte-sonner';
 	import { api, type Stack } from '$lib/api';
 	import { activeTeam, auth } from '$lib/stores';
@@ -8,7 +9,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import { Layers, Play, Square, Trash2, Plus, X, FileCode, Users } from '@lucide/svelte';
+	import { Layers, Play, Square, Trash2, Plus, X, FileCode, Users, Upload, GitBranch, Globe } from '@lucide/svelte';
 
 	let stacks = $state<Stack[]>([]);
 	let loading = $state(true);
@@ -16,6 +17,14 @@
 	let newStack = $state({ name: '', composeContent: '' });
 	let creating = $state(false);
 	let actionLoading = $state<string | null>(null);
+	let fileInput = $state<HTMLInputElement>();
+
+	let importMode = $state<'manual' | 'git'>('manual');
+	let gitStack = $state({
+		url: '',
+		branch: 'main',
+		composePath: 'docker-compose.yml'
+	});
 
 	async function loadStacks() {
 		if (!$activeTeam?.team) {
@@ -31,7 +40,27 @@
 		loading = false;
 	}
 
-	onMount(loadStacks);
+	async function checkTemplate() {
+		const templateId = $page.url.searchParams.get('template');
+		if (templateId) {
+			const result = await api.templates.get(templateId);
+			if (result.data) {
+				newStack.name = result.data.id;
+				newStack.composeContent = result.data.compose_content;
+				showCreateDialog = true;
+
+				// Clear the URL parameter without reloading
+				const newUrl = new URL($page.url);
+				newUrl.searchParams.delete('template');
+				window.history.replaceState({}, '', newUrl);
+			}
+		}
+	}
+
+	onMount(async () => {
+		await loadStacks();
+		await checkTemplate();
+	});
 
 	$effect(() => {
 		if ($activeTeam) {
@@ -40,17 +69,39 @@
 	});
 
 	async function createStack() {
-		if (!newStack.name || !newStack.composeContent || !$activeTeam?.team) return;
+		if (!newStack.name || !$activeTeam?.team) return;
 		creating = true;
-		const result = await api.stacks.create({
-			name: newStack.name,
-			team_id: $activeTeam.team.id,
-			compose_content: newStack.composeContent,
-		});
+
+		let result;
+		if (importMode === 'manual') {
+			if (!newStack.composeContent) {
+				creating = false;
+				return;
+			}
+			result = await api.stacks.create({
+				name: newStack.name,
+				team_id: $activeTeam.team.id,
+				compose_content: newStack.composeContent,
+			});
+		} else {
+			if (!gitStack.url) {
+				creating = false;
+				return;
+			}
+			result = await api.stacks.createFromGit({
+				name: newStack.name,
+				team_id: $activeTeam.team.id,
+				git_url: gitStack.url,
+				git_branch: gitStack.branch,
+				compose_path: gitStack.composePath,
+			});
+		}
+
 		if (result.data) {
 			toast.success('Stack created successfully');
 			showCreateDialog = false;
 			newStack = { name: '', composeContent: '' };
+			gitStack = { url: '', branch: 'main', composePath: 'docker-compose.yml' };
 			await loadStacks();
 		} else {
 			toast.error(result.message || result.error || 'Failed to create stack');
@@ -86,6 +137,33 @@
 		actionLoading = null;
 	}
 
+	async function handleRestore(event: Event) {
+		const target = event.target as HTMLInputElement;
+		const file = target.files?.[0];
+		if (!file || !$activeTeam?.team) return;
+
+		const reader = new FileReader();
+		reader.onload = async (e) => {
+			try {
+				const backup = JSON.parse(e.target?.result as string);
+				creating = true;
+				const result = await api.stacks.restore($activeTeam.team!.id, backup);
+				if (result.data) {
+					toast.success('Stack restored successfully');
+					await loadStacks();
+				} else {
+					toast.error(result.message || result.error || 'Failed to restore stack');
+				}
+			} catch (err: any) {
+				toast.error('Invalid backup file format');
+			} finally {
+				creating = false;
+				target.value = ''; // Reset input
+			}
+		};
+		reader.readAsText(file);
+	}
+
 	function getStatusColor(status: string): string {
 		switch (status) {
 			case 'running': return 'text-green-500';
@@ -111,14 +189,26 @@ services:
 			<h2 class="text-2xl font-bold tracking-tight">Stacks</h2>
 			<p class="text-muted-foreground">Deploy from Docker Compose files</p>
 		</div>
-		<Button
-			class="gap-2"
-			onclick={() => showCreateDialog = true}
-			disabled={!$activeTeam?.team || $activeTeam.role === 'Viewer'}
-		>
-			<Plus class="h-4 w-4" />
-			Import Compose
-		</Button>
+		<div class="flex items-center gap-2">
+			<input type="file" accept=".json" class="hidden" onchange={handleRestore} bind:this={fileInput} disabled={creating || !$activeTeam?.team || $activeTeam.role === 'Viewer'} />
+			<Button
+				variant="outline"
+				class="gap-2"
+				onclick={() => fileInput?.click()}
+				disabled={creating || !$activeTeam?.team || $activeTeam.role === 'Viewer'}
+			>
+				<Upload class="h-4 w-4" />
+				Restore Backup
+			</Button>
+			<Button
+				class="gap-2"
+				onclick={() => showCreateDialog = true}
+				disabled={!$activeTeam?.team || $activeTeam.role === 'Viewer'}
+			>
+				<Plus class="h-4 w-4" />
+				Import Compose
+			</Button>
+		</div>
 	</div>
 
 	{#if !$activeTeam?.team}
@@ -210,24 +300,62 @@ services:
 					<Label for="stackName">Stack Name</Label>
 					<Input id="stackName" placeholder="my-stack" bind:value={newStack.name} />
 				</div>
-				<div class="space-y-2">
-					<div class="flex items-center justify-between">
-						<Label for="compose">docker-compose.yml</Label>
-						<Button
-							variant="ghost"
-							size="sm"
-							onclick={() => newStack.composeContent = sampleCompose}
+				<div class="space-y-4">
+					<div class="flex p-1 bg-muted rounded-lg">
+						<button
+							class="flex-1 flex items-center justify-center gap-2 py-1.5 text-sm font-medium rounded-md transition-all {importMode === 'manual' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+							onclick={() => importMode = 'manual'}
 						>
-							Load Example
-						</Button>
+							<FileCode class="h-4 w-4" />
+							Manual
+						</button>
+						<button
+							class="flex-1 flex items-center justify-center gap-2 py-1.5 text-sm font-medium rounded-md transition-all {importMode === 'git' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground'}"
+							onclick={() => importMode = 'git'}
+						>
+							<GitBranch class="h-4 w-4" />
+							Git
+						</button>
 					</div>
-					<Textarea
-						id="compose"
-						placeholder={sampleCompose}
-						bind:value={newStack.composeContent}
-						rows={12}
-						class="font-mono text-sm"
-					/>
+
+					{#if importMode === 'manual'}
+						<div class="space-y-2">
+							<div class="flex items-center justify-between">
+								<Label for="compose">docker-compose.yml</Label>
+								<Button
+									variant="ghost"
+									size="sm"
+									onclick={() => newStack.composeContent = sampleCompose}
+								>
+									Load Example
+								</Button>
+							</div>
+							<Textarea
+								id="compose"
+								placeholder={sampleCompose}
+								bind:value={newStack.composeContent}
+								rows={10}
+								class="font-mono text-sm"
+							/>
+						</div>
+					{:else}
+						<div class="space-y-4">
+							<div class="space-y-2">
+								<Label for="gitUrl">Repository URL</Label>
+								<Input id="gitUrl" placeholder="https://github.com/user/repo" bind:value={gitStack.url} />
+							</div>
+							<div class="grid grid-cols-2 gap-4">
+								<div class="space-y-2">
+									<Label for="gitBranch">Branch</Label>
+									<Input id="gitBranch" placeholder="main" bind:value={gitStack.branch} />
+								</div>
+								<div class="space-y-2">
+									<Label for="composePath">Compose Path</Label>
+									<Input id="composePath" placeholder="docker-compose.yml" bind:value={gitStack.composePath} />
+								</div>
+							</div>
+						</div>
+					{/if}
 				</div>
 				<div class="text-sm text-muted-foreground">
 					<p><strong>Note:</strong> Only images are supported. Build contexts are not available.</p>
@@ -237,7 +365,7 @@ services:
 				<Button variant="outline" onclick={() => showCreateDialog = false}>Cancel</Button>
 				<Button
 					onclick={createStack}
-					disabled={creating || !newStack.name || !newStack.composeContent}
+					disabled={creating || !newStack.name || (importMode === 'manual' ? !newStack.composeContent : !gitStack.url)}
 				>
 					{creating ? 'Creating...' : 'Create Stack'}
 				</Button>

@@ -74,6 +74,9 @@ impl StackService {
             health_check_path: None,
             health_check_interval: 30,
             last_stable_images: None,
+            git_url: None,
+            git_branch: None,
+            last_commit_hash: None,
             created_at: now.clone(),
             updated_at: now,
         };

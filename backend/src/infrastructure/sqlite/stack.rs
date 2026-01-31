@@ -59,7 +59,7 @@ impl StackRepository for SqliteStackRepository {
 
     async fn create(&self, stack: Stack) -> Result<Stack> {
         sqlx::query(
-            "INSERT INTO stacks (id, name, user_id, team_id, compose_content, status, webhook_token, cron_schedule, health_check_path, health_check_interval, last_stable_images, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO stacks (id, name, user_id, team_id, compose_content, status, webhook_token, cron_schedule, health_check_path, health_check_interval, last_stable_images, git_url, git_branch, last_commit_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )
         .bind(&stack.id)
         .bind(&stack.name)
@@ -72,6 +72,9 @@ impl StackRepository for SqliteStackRepository {
         .bind(&stack.health_check_path)
         .bind(&stack.health_check_interval)
         .bind(&stack.last_stable_images)
+        .bind(&stack.git_url)
+        .bind(&stack.git_branch)
+        .bind(&stack.last_commit_hash)
         .bind(&stack.created_at)
         .bind(&stack.updated_at)
         .execute(&self.pool)
@@ -135,6 +138,17 @@ impl StackRepository for SqliteStackRepository {
     async fn update_last_stable_images(&self, id: &str, images: Option<String>) -> Result<()> {
         sqlx::query("UPDATE stacks SET last_stable_images = ?, updated_at = ? WHERE id = ?")
             .bind(images)
+            .bind(Utc::now().to_rfc3339())
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn update_git_info(&self, id: &str, commit_hash: &str) -> Result<()> {
+        sqlx::query("UPDATE stacks SET last_commit_hash = ?, updated_at = ? WHERE id = ?")
+            .bind(commit_hash)
             .bind(Utc::now().to_rfc3339())
             .bind(id)
             .execute(&self.pool)

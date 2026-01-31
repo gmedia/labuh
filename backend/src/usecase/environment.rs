@@ -21,6 +21,10 @@ impl EnvironmentUsecase {
         Ok(vars.into_iter().map(Into::into).collect())
     }
 
+    pub async fn get_raw_vars(&self, stack_id: &str) -> Result<Vec<StackEnvVar>> {
+        self.repo.list_by_stack(stack_id).await
+    }
+
     pub async fn get_env_map_for_container(
         &self,
         stack_id: &str,

@@ -163,15 +163,39 @@ export interface Stack {
   health_check_path?: string;
   health_check_interval: number;
   last_stable_images?: string;
+  git_url?: string;
+  git_branch?: string;
+  last_commit_hash?: string;
   container_count: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface StackBackup {
+  name: string;
+  compose_content: string;
+  env_vars: BackupEnvVar[];
+}
+
+export interface BackupEnvVar {
+  container_name: string;
+  key: string;
+  value: string;
+  is_secret: boolean;
 }
 
 export interface CreateStack {
   name: string;
   team_id: string;
   compose_content: string;
+}
+
+export interface CreateStackFromGit {
+  name: string;
+  team_id: string;
+  git_url: string;
+  git_branch: string;
+  compose_path: string;
 }
 
 export interface Domain {
@@ -266,6 +290,28 @@ export interface ResourceMetric {
   cpu_usage: number;
   memory_usage: number;
   timestamp: string;
+}
+
+export interface Template {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  compose_content: string;
+  default_env: TemplateEnv[];
+}
+
+export interface TemplateEnv {
+  key: string;
+  value: string;
+  description?: string;
+}
+
+export interface TemplateResponse {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
 }
 
 export const api = {
@@ -442,6 +488,30 @@ export const api = {
     remove: async (id: string) => {
       return fetchApi<{ status: string }>(`/stacks/${id}`, {
         method: "DELETE",
+      });
+    },
+
+    backup: async (id: string) => {
+      return fetchApi<StackBackup>(`/stacks/${id}/backup`);
+    },
+
+    restore: async (teamId: string, backup: StackBackup) => {
+      return fetchApi<Stack>("/stacks/restore", {
+        method: "POST",
+        body: JSON.stringify({ team_id: teamId, backup }),
+      });
+    },
+
+    createFromGit: async (request: CreateStackFromGit) => {
+      return fetchApi<Stack>("/stacks/git", {
+        method: "POST",
+        body: JSON.stringify(request),
+      });
+    },
+
+    syncGit: async (id: string) => {
+      return fetchApi<{ status: string }>(`/stacks/${id}/git/sync`, {
+        method: "POST",
       });
     },
 
@@ -645,6 +715,16 @@ export const api = {
           body: JSON.stringify({ role }),
         },
       );
+    },
+  },
+
+  templates: {
+    list: async () => {
+      return fetchApi<TemplateResponse[]>("/templates");
+    },
+
+    get: async (id: string) => {
+      return fetchApi<Template>(`/templates/${id}`);
     },
   },
 };

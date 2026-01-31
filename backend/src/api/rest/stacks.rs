@@ -200,10 +200,74 @@ async fn redeploy_service(
     Ok(Json(serde_json::json!({ "status": "redeployed" })))
 }
 
+async fn get_stack_backup(
+    State(usecase): State<Arc<StackUsecase>>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<String>,
+) -> Result<Json<crate::domain::models::stack::StackBackup>> {
+    let backup = usecase.get_stack_backup(&id, &current_user.id).await?;
+    Ok(Json(backup))
+}
+
+#[derive(serde::Deserialize)]
+struct RestoreStackRequest {
+    team_id: String,
+    backup: crate::domain::models::stack::StackBackup,
+}
+
+async fn restore_stack(
+    State(usecase): State<Arc<StackUsecase>>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(request): Json<RestoreStackRequest>,
+) -> Result<Json<StackResponse>> {
+    let stack = usecase
+        .restore_stack(request.backup, &current_user.id, &request.team_id)
+        .await?;
+    Ok(Json(stack.into()))
+}
+
+#[derive(serde::Deserialize)]
+struct CreateStackFromGit {
+    name: String,
+    team_id: String,
+    git_url: String,
+    git_branch: String,
+    compose_path: String,
+}
+
+async fn create_stack_from_git(
+    State(usecase): State<Arc<StackUsecase>>,
+    Extension(current_user): Extension<CurrentUser>,
+    Json(request): Json<CreateStackFromGit>,
+) -> Result<Json<StackResponse>> {
+    let stack = usecase
+        .create_stack_from_git(
+            &request.name,
+            &request.git_url,
+            &request.git_branch,
+            &request.compose_path,
+            &current_user.id,
+            &request.team_id,
+        )
+        .await?;
+    Ok(Json(stack.into()))
+}
+
+async fn sync_git(
+    State(usecase): State<Arc<StackUsecase>>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>> {
+    usecase.sync_git(&id, &current_user.id).await?;
+    Ok(Json(serde_json::json!({ "status": "synced" })))
+}
+
 pub fn stack_routes(usecase: Arc<StackUsecase>) -> Router {
     Router::new()
         .route("/", get(list_stacks))
         .route("/", post(create_stack))
+        .route("/git", post(create_stack_from_git))
+        .route("/restore", post(restore_stack))
         .route("/{id}", get(get_stack))
         .route("/{id}", delete(remove_stack))
         .route("/{id}/containers", get(get_stack_containers))
@@ -212,6 +276,8 @@ pub fn stack_routes(usecase: Arc<StackUsecase>) -> Router {
         .route("/{id}/start", post(start_stack))
         .route("/{id}/stop", post(stop_stack))
         .route("/{id}/redeploy", post(redeploy_stack))
+        .route("/{id}/backup", get(get_stack_backup))
+        .route("/{id}/git/sync", post(sync_git))
         .route(
             "/{id}/services/{service_name}/redeploy",
             post(redeploy_service),

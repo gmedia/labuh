@@ -11,6 +11,7 @@
 		Image,
 		FolderKanban,
 		Layers,
+		LayoutGrid,
 		Settings,
 		LogOut,
 		Sun,
@@ -28,6 +29,7 @@
 		{ href: '/dashboard/images', label: 'Images', icon: Image },
 		{ href: '/dashboard/stacks', label: 'Stacks', icon: Layers },
 		{ href: '/dashboard/logs', label: 'Logs', icon: Terminal },
+		{ href: '/dashboard/templates', label: 'Templates', icon: LayoutGrid },
 		{ href: '/dashboard/teams', label: 'Teams', icon: Users },
 		{ href: '/dashboard/settings', label: 'Settings', icon: Settings }
 	];

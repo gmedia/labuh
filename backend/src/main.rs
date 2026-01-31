@@ -20,7 +20,7 @@ use crate::api::rest::auth::protected_auth_routes;
 use crate::api::rest::{
     auth_routes, container_routes, deployment_log_routes, domain_routes, environment_routes,
     health_routes, image_routes, registry_routes, resource_routes, stack_routes, system_routes,
-    team_routes,
+    team_routes, template_routes,
 };
 use crate::config::Config;
 use crate::services::{
@@ -167,6 +167,7 @@ async fn main() -> anyhow::Result<()> {
             crate::infrastructure::sqlite::team::SqliteTeamRepository::new(pool.clone()),
         );
         let team_usecase = Arc::new(crate::usecase::team::TeamUsecase::new(team_repo.clone()));
+        let template_usecase = Arc::new(crate::usecase::template::TemplateUsecase::new());
 
         // Create resource components (New Phase 11)
         let resource_repo = Arc::new(
@@ -244,7 +245,8 @@ async fn main() -> anyhow::Result<()> {
             .nest(
                 "/stacks",
                 environment_routes(env_usecase, stack_usecase.clone()),
-            );
+            )
+            .nest("/templates", template_routes(template_usecase));
 
         // Create webhook state and routes
         let webhook_state = api::rest::webhooks::WebhookState {
