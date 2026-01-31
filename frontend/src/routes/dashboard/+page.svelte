@@ -1,77 +1,24 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type SystemStats, type Container, type Image, type Stack } from '$lib/api';
 	import { activeTeam } from '$lib/stores';
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
-	import { Container as ContainerIcon, Image as ImageIcon, Layers, Activity, Cpu, HardDrive, Clock, Users } from '@lucide/svelte';
+	import { Container as ContainerIcon, Image as ImageIcon, Layers, Users } from '@lucide/svelte';
+	import { DashboardController } from '$lib/features/dashboard/dashboard-controller.svelte';
+	import StatCards from '$lib/features/dashboard/components/StatCards.svelte';
+	import SystemOverview from '$lib/features/dashboard/components/SystemOverview.svelte';
 
-	let systemHealth = $state<{ status: string; version: string } | null>(null);
-	let systemStats = $state<SystemStats | null>(null);
-	let containers = $state<Container[]>([]);
-	let images = $state<Image[]>([]);
-	let stacks = $state<Stack[]>([]);
-	let loading = $state(true);
+	let ctrl = $state(new DashboardController());
 
-	async function loadDashboardData() {
-		if (!$activeTeam?.team) {
-			containers = [];
-			stacks = [];
-			loading = false;
-			// We still want system health and stats
-			const [healthRes, statsRes] = await Promise.all([
-				api.health.check(),
-				api.system.stats(),
-			]);
-			if (healthRes.data) systemHealth = healthRes.data;
-			if (statsRes.data) systemStats = statsRes.data;
-			return;
-		}
-
-		loading = true;
-		const [healthRes, statsRes, containersRes, imagesRes, stacksRes] = await Promise.all([
-			api.health.check(),
-			api.system.stats(),
-			api.containers.list(true, $activeTeam.team.id),
-			api.images.list(), // Images are host-wide
-			api.stacks.list($activeTeam.team.id),
-		]);
-
-		if (healthRes.data) systemHealth = healthRes.data;
-		if (statsRes.data) systemStats = statsRes.data;
-		if (containersRes.data) containers = containersRes.data;
-		if (imagesRes.data) images = imagesRes.data;
-		if (stacksRes.data) stacks = stacksRes.data;
-
-		loading = false;
-	}
-
-	onMount(loadDashboardData);
+	onMount(() => {
+		ctrl.init();
+	});
 
 	$effect(() => {
 		if ($activeTeam) {
-			loadDashboardData();
+			ctrl.loadAll();
 		}
 	});
-
-	function formatBytes(bytes: number): string {
-		if (bytes === 0) return '0 B';
-		const k = 1024;
-		const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-		const i = Math.floor(Math.log(bytes) / Math.log(k));
-		return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-	}
-
-	function formatUptime(seconds: number): string {
-		const days = Math.floor(seconds / 86400);
-		const hours = Math.floor((seconds % 86400) / 3600);
-		const mins = Math.floor((seconds % 3600) / 60);
-		if (days > 0) return `${days}d ${hours}h`;
-		if (hours > 0) return `${hours}h ${mins}m`;
-		return `${mins}m`;
-	}
-
-	let runningContainers = $derived(containers.filter(c => c.state === 'running').length);
 </script>
 
 <div class="space-y-6">
@@ -80,7 +27,7 @@
 		<p class="text-muted-foreground">Welcome to Labuh - Your lightweight PaaS platform</p>
 	</div>
 
-	{#if loading}
+	{#if ctrl.loading}
 		<div class="flex items-center justify-center py-12">
 			<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
 		</div>
@@ -96,114 +43,8 @@
 			</Card.Content>
 		</Card.Root>
 	{:else}
-		<!-- Stats Cards -->
-		<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-			<Card.Root>
-				<Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
-					<Card.Title class="text-sm font-medium">Running Containers</Card.Title>
-					<ContainerIcon class="h-4 w-4 text-green-500" />
-				</Card.Header>
-				<Card.Content>
-					<div class="text-2xl font-bold">{runningContainers}</div>
-					<p class="text-xs text-muted-foreground">{containers.length} total</p>
-				</Card.Content>
-			</Card.Root>
-
-			<Card.Root>
-				<Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
-					<Card.Title class="text-sm font-medium">Images</Card.Title>
-					<ImageIcon class="h-4 w-4 text-blue-500" />
-				</Card.Header>
-				<Card.Content>
-					<div class="text-2xl font-bold">{images.length}</div>
-					<p class="text-xs text-muted-foreground">local images</p>
-				</Card.Content>
-			</Card.Root>
-
-			<Card.Root>
-				<Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
-					<Card.Title class="text-sm font-medium">Stacks</Card.Title>
-					<Layers class="h-4 w-4 text-purple-500" />
-				</Card.Header>
-				<Card.Content>
-					<div class="text-2xl font-bold">{stacks.length}</div>
-					<p class="text-xs text-muted-foreground">{stacks.filter(s => s.status === 'running').length} running</p>
-				</Card.Content>
-			</Card.Root>
-
-			<Card.Root>
-				<Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
-					<Card.Title class="text-sm font-medium">System Status</Card.Title>
-					<Activity class="h-4 w-4 text-orange-500" />
-				</Card.Header>
-				<Card.Content>
-					<div class="text-2xl font-bold capitalize">{systemHealth?.status || 'unknown'}</div>
-					<p class="text-xs text-muted-foreground">v{systemHealth?.version || '?'}</p>
-				</Card.Content>
-			</Card.Root>
-		</div>
-
-		<!-- System Overview -->
-		{#if systemStats}
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>System Overview</Card.Title>
-					<Card.Description>Server resource usage</Card.Description>
-				</Card.Header>
-				<Card.Content>
-					<div class="grid gap-4 md:grid-cols-4">
-						<div class="flex items-center gap-3">
-							<div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
-								<Cpu class="h-5 w-5" />
-							</div>
-							<div>
-								<p class="text-sm text-muted-foreground">CPU Cores</p>
-								<p class="text-lg font-semibold">{systemStats.cpu_count}</p>
-							</div>
-						</div>
-
-						<div class="flex items-center gap-3">
-							<div class="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10 text-green-500">
-								<HardDrive class="h-5 w-5" />
-							</div>
-							<div>
-								<p class="text-sm text-muted-foreground">Memory</p>
-								<p class="text-lg font-semibold">{systemStats.memory_used_percent.toFixed(1)}%</p>
-								<p class="text-xs text-muted-foreground">
-									{formatBytes(systemStats.memory_available_kb * 1024)} free
-								</p>
-							</div>
-						</div>
-
-						<div class="flex items-center gap-3">
-							<div class="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-500/10 text-purple-500">
-								<HardDrive class="h-5 w-5" />
-							</div>
-							<div>
-								<p class="text-sm text-muted-foreground">Disk</p>
-								<p class="text-lg font-semibold">{systemStats.disk_used_percent.toFixed(1)}%</p>
-								<p class="text-xs text-muted-foreground">
-									{formatBytes(systemStats.disk_available_bytes)} free
-								</p>
-							</div>
-						</div>
-
-						<div class="flex items-center gap-3">
-							<div class="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/10 text-orange-500">
-								<Clock class="h-5 w-5" />
-							</div>
-							<div>
-								<p class="text-sm text-muted-foreground">Uptime</p>
-								<p class="text-lg font-semibold">{formatUptime(systemStats.uptime_seconds)}</p>
-								<p class="text-xs text-muted-foreground">
-									Load: {systemStats.load_average.one.toFixed(2)}
-								</p>
-							</div>
-						</div>
-					</div>
-				</Card.Content>
-			</Card.Root>
-		{/if}
+		<StatCards {ctrl} />
+		<SystemOverview {ctrl} />
 
 		<!-- Quick Actions -->
 		<Card.Root>

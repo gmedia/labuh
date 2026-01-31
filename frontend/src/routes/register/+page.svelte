@@ -1,45 +1,11 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { api } from '$lib/api';
+	import { AuthController } from '$lib/features/auth/auth-controller.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
-	import { Ship } from '@lucide/svelte';
 
-	let name = $state('');
-	let email = $state('');
-	let password = $state('');
-	let confirmPassword = $state('');
-	let error = $state('');
-	let loading = $state(false);
-
-	async function handleSubmit(e: Event) {
-		e.preventDefault();
-		error = '';
-
-		if (password !== confirmPassword) {
-			error = 'Passwords do not match';
-			return;
-		}
-
-		if (password.length < 6) {
-			error = 'Password must be at least 6 characters';
-			return;
-		}
-
-		loading = true;
-
-		const result = await api.auth.register({ email, password, name: name || undefined });
-
-		if (result.error) {
-			error = result.message || 'Registration failed';
-			loading = false;
-			return;
-		}
-
-		goto('/dashboard');
-	}
+	let ctrl = $state(new AuthController());
 </script>
 
 <div class="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-muted/50 p-4">
@@ -52,10 +18,10 @@
 			<Card.Description>Get started with Labuh today</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			<form onsubmit={handleSubmit} class="space-y-4">
-				{#if error}
+			<form onsubmit={(e) => ctrl.register(e)} class="space-y-4">
+				{#if ctrl.error}
 					<div class="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-						{error}
+						{ctrl.error}
 					</div>
 				{/if}
 
@@ -65,7 +31,7 @@
 						id="name"
 						type="text"
 						placeholder="Your name"
-						bind:value={name}
+						bind:value={ctrl.name}
 					/>
 				</div>
 
@@ -75,7 +41,7 @@
 						id="email"
 						type="email"
 						placeholder="you@example.com"
-						bind:value={email}
+						bind:value={ctrl.email}
 						required
 					/>
 				</div>
@@ -86,7 +52,7 @@
 						id="password"
 						type="password"
 						placeholder="••••••••"
-						bind:value={password}
+						bind:value={ctrl.password}
 						required
 					/>
 				</div>
@@ -97,13 +63,13 @@
 						id="confirmPassword"
 						type="password"
 						placeholder="••••••••"
-						bind:value={confirmPassword}
+						bind:value={ctrl.confirmPassword}
 						required
 					/>
 				</div>
 
-				<Button type="submit" class="w-full" disabled={loading}>
-					{loading ? 'Creating account...' : 'Create Account'}
+				<Button type="submit" class="w-full" disabled={ctrl.loading}>
+					{ctrl.loading ? 'Creating account...' : 'Create Account'}
 				</Button>
 			</form>
 		</Card.Content>

@@ -159,6 +159,27 @@
   - [x] Complete member role management
   - [x] Team deletion logic
 
+### Phase 15: Frontend Refactoring (Pragmatic Feature-Sliced) ✅
+
+- [x] **Infrastructure Setup**
+  - [x] Create `$lib/features` directory structure
+  - [x] Define standardized pattern for `.svelte.ts` logic
+
+- [x] **Core Features Refactor**
+  - [x] Extract `StackController.svelte.ts` and componentize Stack details
+  - [x] Extract `TeamController.svelte.ts` and componentize Team management
+  - [x] Extract `ContainerController.svelte.ts` and componentize Container details/list
+  - [x] Extract `DashboardController.svelte.ts` and componentize Dashboard overview
+  - [x] Extract `TemplateController.svelte.ts` and componentize Templates gallery
+  - [x] Extract `SettingsController.svelte.ts` and componentize Profile/Appearance/Registries
+  - [x] Extract `LogsController.svelte.ts` and componentize Logs viewer
+  - [x] Extract `AuthController.svelte.ts` and componentize Login/Register
+
+- [x] **Global State & Stability**
+  - [x] Audit `$lib/stores` and move feature-specific state to controllers
+  - [x] Resolve all TypeScript errors (svelte-check)
+  - [x] Verify production build and reactivity stability
+
 ---
 
 ## 🏗️ Architecture Migration ✅
