@@ -15,6 +15,7 @@
 	import DeploymentHistory from '$lib/features/stacks/components/DeploymentHistory.svelte';
 	import ComposeEditor from '$lib/features/stacks/components/ComposeEditor.svelte';
 	import LogViewer from '$lib/features/stacks/components/LogViewer.svelte';
+	import StackHealth from '$lib/features/stacks/components/StackHealth.svelte';
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import { goto } from '$app/navigation';
@@ -65,6 +66,7 @@
 
 			<!-- Sidebar -->
 			<div class="space-y-6">
+				<StackHealth bind:ctrl />
 				<StackAutomation bind:ctrl />
 				<EnvironmentEditor bind:ctrl />
 				<StackWebhooks bind:ctrl />
