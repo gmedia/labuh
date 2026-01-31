@@ -77,8 +77,8 @@
             {#each ctrl.selectedTeamMembers as member}
               <div class="flex items-center justify-between p-3 border rounded-lg bg-card/50">
                 <div class="flex items-center gap-3">
-                  <div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                    {member.user_name?.substring(0, 2).toUpperCase() || member.user_email.substring(0, 2).toUpperCase()}
+                  <div class="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs uppercase">
+                    {member.user_name?.slice(0, 2) || member.user_email?.slice(0, 2) || '??'}
                   </div>
                   <div class="grid gap-0.5">
                     <p class="text-sm font-medium leading-none flex items-center gap-1.5">
