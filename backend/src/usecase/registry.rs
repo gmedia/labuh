@@ -17,14 +17,21 @@ impl RegistryUsecase {
         Self { repo }
     }
 
-    pub async fn list_credentials(&self, team_id: &str, _user_id: &str) -> Result<Vec<RegistryCredentialResponse>> {
+    pub async fn list_credentials(
+        &self,
+        team_id: &str,
+        _user_id: &str,
+    ) -> Result<Vec<RegistryCredentialResponse>> {
         // TODO: Pass team_repo to check membership if needed,
         // but for now we assume the caller verified permission or we'll add it.
         let creds = self.repo.list_by_team(team_id).await?;
         Ok(creds.into_iter().map(Into::into).collect())
     }
 
-    pub async fn list_user_credentials(&self, _user_id: &str) -> Result<Vec<RegistryCredentialResponse>> {
+    pub async fn list_user_credentials(
+        &self,
+        _user_id: &str,
+    ) -> Result<Vec<RegistryCredentialResponse>> {
         // This would need a join or iterating over user teams
         // For simplicity, let's focus on team-based listing first.
         Ok(vec![])
@@ -69,7 +76,8 @@ impl RegistryUsecase {
         team_id: &str,
         image: &str,
     ) -> Result<Option<(String, String)>> {
-        self.get_credentials_for_image_internal(team_id, image).await
+        self.get_credentials_for_image_internal(team_id, image)
+            .await
     }
 
     pub async fn get_credentials_for_image_internal(

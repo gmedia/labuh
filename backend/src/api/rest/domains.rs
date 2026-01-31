@@ -62,7 +62,10 @@ async fn verify_domain(
     Ok(Json(result))
 }
 
-pub fn domain_routes(domain_service: Arc<DomainService>, stack_usecase: Arc<StackUsecase>) -> Router {
+pub fn domain_routes(
+    domain_service: Arc<DomainService>,
+    stack_usecase: Arc<StackUsecase>,
+) -> Router {
     Router::new()
         .route("/{stack_id}/domains", get(list_domains))
         .route("/{stack_id}/domains", post(add_domain))

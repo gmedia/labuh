@@ -1,12 +1,12 @@
+use chrono::Utc;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
-use chrono::Utc;
 use uuid::Uuid;
 
-use crate::domain::resource_repository::ResourceRepository;
-use crate::domain::stack_repository::StackRepository;
-use crate::domain::runtime::RuntimePort;
 use crate::domain::models::resource::ResourceMetric;
+use crate::domain::resource_repository::ResourceRepository;
+use crate::domain::runtime::RuntimePort;
+use crate::domain::stack_repository::StackRepository;
 
 pub struct MetricsCollector {
     stack_repo: Arc<dyn StackRepository>,
@@ -52,8 +52,14 @@ impl MetricsCollector {
                 }
             };
 
-            let stack_containers: Vec<_> = containers.into_iter()
-                .filter(|c| c.labels.get("labuh.stack.id").map(|id| id == &stack.id).unwrap_or(false))
+            let stack_containers: Vec<_> = containers
+                .into_iter()
+                .filter(|c| {
+                    c.labels
+                        .get("labuh.stack.id")
+                        .map(|id| id == &stack.id)
+                        .unwrap_or(false)
+                })
                 .collect();
 
             for container in stack_containers {
@@ -73,14 +79,22 @@ impl MetricsCollector {
                         }
                     }
                     Err(e) => {
-                        tracing::debug!("Failed to get stats for container {}: {}", container.id, e);
+                        tracing::debug!(
+                            "Failed to get stats for container {}: {}",
+                            container.id,
+                            e
+                        );
                     }
                 }
             }
         }
 
         // Also prune old metrics
-        if let Err(e) = self.resource_repo.prune_metrics(&(Utc::now() - chrono::Duration::days(30)).to_rfc3339()).await {
+        if let Err(e) = self
+            .resource_repo
+            .prune_metrics(&(Utc::now() - chrono::Duration::days(30)).to_rfc3339())
+            .await
+        {
             tracing::error!("Failed to prune metrics: {}", e);
         }
 

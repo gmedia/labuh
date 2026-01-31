@@ -18,7 +18,9 @@ impl TemplateUsecase {
     }
 
     pub async fn get_template(&self, id: &str) -> Result<Template> {
-        self.repo.find_by_id(id).await?
+        self.repo
+            .find_by_id(id)
+            .await?
             .ok_or_else(|| AppError::NotFound(format!("Template {} not found", id)))
     }
 
@@ -28,7 +30,8 @@ impl TemplateUsecase {
 
     pub async fn import_from_url(&self, url: &str) -> Result<Template> {
         let client = reqwest::Client::new();
-        let template: Template = client.get(url)
+        let template: Template = client
+            .get(url)
             .send()
             .await
             .map_err(|e| AppError::Internal(format!("Failed to fetch template from URL: {}", e)))?
@@ -83,7 +86,8 @@ services:
       WORDPRESS_DB_NAME: wordpress
 
 volumes:
-  db_data: {}"#.to_string(),
+  db_data: {}"#
+                    .to_string(),
                 default_env: vec![
                     TemplateEnv {
                         key: "MYSQL_ROOT_PASSWORD".to_string(),
@@ -111,13 +115,16 @@ services:
       - "2368:2368"
     environment:
       url: http://localhost:2368
-      database__client: sqlite3"#.to_string(),
+      database__client: sqlite3"#
+                    .to_string(),
                 default_env: vec![],
             },
             Template {
                 id: "redis".to_string(),
                 name: "Redis".to_string(),
-                description: "In-memory data structure store, used as a database, cache, and message broker.".to_string(),
+                description:
+                    "In-memory data structure store, used as a database, cache, and message broker."
+                        .to_string(),
                 icon: "database".to_string(),
                 compose_content: r#"version: '3.8'
 services:
@@ -125,7 +132,8 @@ services:
     image: redis:alpine
     ports:
       - "6379:6379"
-    restart: always"#.to_string(),
+    restart: always"#
+                    .to_string(),
                 default_env: vec![],
             },
         ];

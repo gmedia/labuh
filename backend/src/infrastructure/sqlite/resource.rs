@@ -19,9 +19,13 @@ impl SqliteResourceRepository {
 
 #[async_trait]
 impl ResourceRepository for SqliteResourceRepository {
-    async fn get_resource_limits(&self, stack_id: &str, service_name: &str) -> Result<Option<ContainerResource>> {
+    async fn get_resource_limits(
+        &self,
+        stack_id: &str,
+        service_name: &str,
+    ) -> Result<Option<ContainerResource>> {
         let resource = sqlx::query_as::<_, ContainerResource>(
-            "SELECT * FROM container_resources WHERE stack_id = ? AND service_name = ?"
+            "SELECT * FROM container_resources WHERE stack_id = ? AND service_name = ?",
         )
         .bind(stack_id)
         .bind(service_name)
@@ -31,9 +35,12 @@ impl ResourceRepository for SqliteResourceRepository {
         Ok(resource)
     }
 
-    async fn list_resource_limits_for_stack(&self, stack_id: &str) -> Result<Vec<ContainerResource>> {
+    async fn list_resource_limits_for_stack(
+        &self,
+        stack_id: &str,
+    ) -> Result<Vec<ContainerResource>> {
         let resources = sqlx::query_as::<_, ContainerResource>(
-            "SELECT * FROM container_resources WHERE stack_id = ?"
+            "SELECT * FROM container_resources WHERE stack_id = ?",
         )
         .bind(stack_id)
         .fetch_all(&self.pool)
@@ -42,7 +49,13 @@ impl ResourceRepository for SqliteResourceRepository {
         Ok(resources)
     }
 
-    async fn update_resource_limits(&self, stack_id: &str, service_name: &str, cpu: Option<f64>, memory: Option<i64>) -> Result<()> {
+    async fn update_resource_limits(
+        &self,
+        stack_id: &str,
+        service_name: &str,
+        cpu: Option<f64>,
+        memory: Option<i64>,
+    ) -> Result<()> {
         let now = Utc::now().to_rfc3339();
 
         sqlx::query(
@@ -84,7 +97,11 @@ impl ResourceRepository for SqliteResourceRepository {
         Ok(())
     }
 
-    async fn get_metrics_for_stack(&self, stack_id: &str, since: &str) -> Result<Vec<ResourceMetric>> {
+    async fn get_metrics_for_stack(
+        &self,
+        stack_id: &str,
+        since: &str,
+    ) -> Result<Vec<ResourceMetric>> {
         let metrics = sqlx::query_as::<_, ResourceMetric>(
             "SELECT * FROM resource_metrics WHERE stack_id = ? AND timestamp >= ? ORDER BY timestamp ASC"
         )

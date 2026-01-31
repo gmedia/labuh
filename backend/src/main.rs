@@ -163,15 +163,16 @@ async fn main() -> anyhow::Result<()> {
             Arc::new(crate::infrastructure::docker::runtime::DockerRuntimeAdapter::new().await?);
 
         // Create team components (New Phase 12)
-        let team_repo = Arc::new(
-            crate::infrastructure::sqlite::team::SqliteTeamRepository::new(pool.clone()),
-        );
+        let team_repo =
+            Arc::new(crate::infrastructure::sqlite::team::SqliteTeamRepository::new(pool.clone()));
         let team_usecase = Arc::new(crate::usecase::team::TeamUsecase::new(team_repo.clone()));
         // Create template components
         let template_repo = Arc::new(
             crate::infrastructure::sqlite::template::SqliteTemplateRepository::new(pool.clone()),
         );
-        let template_usecase = Arc::new(crate::usecase::template::TemplateUsecase::new(template_repo));
+        let template_usecase = Arc::new(crate::usecase::template::TemplateUsecase::new(
+            template_repo,
+        ));
 
         // Seed templates
         let ts_clone = template_usecase.clone();
@@ -248,7 +249,10 @@ async fn main() -> anyhow::Result<()> {
                 image_routes(container_svc.clone(), registry_usecase.clone()),
             )
             .nest("/stacks", stack_routes(stack_usecase.clone()))
-            .nest("/stacks", domain_routes(domain_service, stack_usecase.clone()))
+            .nest(
+                "/stacks",
+                domain_routes(domain_service, stack_usecase.clone()),
+            )
             .nest(
                 "/stacks",
                 deployment_log_routes(log_usecase.clone(), stack_usecase.clone()),

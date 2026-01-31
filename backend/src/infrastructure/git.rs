@@ -1,6 +1,6 @@
-use tokio::process::Command;
 use crate::error::{AppError, Result};
 use std::path::Path;
+use tokio::process::Command;
 use tracing::info;
 
 pub struct GitService;
@@ -36,8 +36,9 @@ impl GitService {
             info!("Cloning repository {} into {}", url, target_dir);
             // Ensure parent directory exists
             if let Some(parent) = path.parent() {
-                tokio::fs::create_dir_all(parent).await
-                    .map_err(|e| AppError::Internal(format!("Failed to create git data directory: {}", e)))?;
+                tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                    AppError::Internal(format!("Failed to create git data directory: {}", e))
+                })?;
             }
 
             let output = Command::new("git")

@@ -1,8 +1,8 @@
-use async_trait::async_trait;
-use sqlx::{SqlitePool, Row};
 use crate::domain::models::template::{Template, TemplateEnv};
 use crate::domain::TemplateRepository;
 use crate::error::Result;
+use async_trait::async_trait;
+use sqlx::{Row, SqlitePool};
 
 pub struct SqliteTemplateRepository {
     pool: SqlitePool,
@@ -24,7 +24,8 @@ impl TemplateRepository for SqliteTemplateRepository {
         let mut templates = Vec::new();
         for row in rows {
             let default_env_str: String = row.get("default_env");
-            let default_env: Vec<TemplateEnv> = serde_json::from_str(&default_env_str).unwrap_or_default();
+            let default_env: Vec<TemplateEnv> =
+                serde_json::from_str(&default_env_str).unwrap_or_default();
 
             templates.push(Template {
                 id: row.get("id"),
@@ -47,7 +48,8 @@ impl TemplateRepository for SqliteTemplateRepository {
 
         if let Some(row) = row {
             let default_env_str: String = row.get("default_env");
-            let default_env: Vec<TemplateEnv> = serde_json::from_str(&default_env_str).unwrap_or_default();
+            let default_env: Vec<TemplateEnv> =
+                serde_json::from_str(&default_env_str).unwrap_or_default();
 
             Ok(Some(Template {
                 id: row.get("id"),
@@ -63,7 +65,8 @@ impl TemplateRepository for SqliteTemplateRepository {
     }
 
     async fn save(&self, template: &Template) -> Result<()> {
-        let default_env_str = serde_json::to_string(&template.default_env).unwrap_or_else(|_| "[]".to_string());
+        let default_env_str =
+            serde_json::to_string(&template.default_env).unwrap_or_else(|_| "[]".to_string());
 
         sqlx::query(
             r#"

@@ -1,8 +1,8 @@
+use chrono::Utc;
 use std::sync::Arc;
 use uuid::Uuid;
-use chrono::Utc;
 
-use crate::domain::models::team::{Team, TeamMember, TeamRole, TeamResponse};
+use crate::domain::models::team::{Team, TeamMember, TeamResponse, TeamRole};
 use crate::domain::TeamRepository;
 use crate::error::{AppError, Result};
 
@@ -27,13 +27,16 @@ impl TeamUsecase {
         };
 
         self.team_repo.save(&team).await?;
-        self.team_repo.add_member(&id, owner_id, TeamRole::Owner).await?;
+        self.team_repo
+            .add_member(&id, owner_id, TeamRole::Owner)
+            .await?;
 
         Ok(team)
     }
 
     pub async fn delete_team(&self, team_id: &str, actor_id: &str) -> Result<()> {
-        self.verify_permission(team_id, actor_id, TeamRole::Owner).await?;
+        self.verify_permission(team_id, actor_id, TeamRole::Owner)
+            .await?;
         self.team_repo.delete(team_id).await
     }
 
@@ -42,20 +45,29 @@ impl TeamUsecase {
         let mut responses = Vec::new();
 
         for team in teams {
-            let role = self.team_repo.get_user_role(&team.id, user_id).await?
-                .ok_or(AppError::NotFound("Role not found for team member".to_string()))?;
+            let role = self
+                .team_repo
+                .get_user_role(&team.id, user_id)
+                .await?
+                .ok_or(AppError::NotFound(
+                    "Role not found for team member".to_string(),
+                ))?;
 
-            responses.push(TeamResponse {
-                team,
-                role,
-            });
+            responses.push(TeamResponse { team, role });
         }
 
         Ok(responses)
     }
 
-    pub async fn add_member(&self, team_id: &str, user_id: &str, role: TeamRole, actor_id: &str) -> Result<()> {
-        self.verify_permission(team_id, actor_id, TeamRole::Admin).await?;
+    pub async fn add_member(
+        &self,
+        team_id: &str,
+        user_id: &str,
+        role: TeamRole,
+        actor_id: &str,
+    ) -> Result<()> {
+        self.verify_permission(team_id, actor_id, TeamRole::Admin)
+            .await?;
 
         self.team_repo.add_member(team_id, user_id, role).await?;
         Ok(())
@@ -63,42 +75,71 @@ impl TeamUsecase {
 
     pub async fn remove_member(&self, team_id: &str, user_id: &str, actor_id: &str) -> Result<()> {
         if user_id != actor_id {
-            self.verify_permission(team_id, actor_id, TeamRole::Admin).await?;
+            self.verify_permission(team_id, actor_id, TeamRole::Admin)
+                .await?;
         }
 
         // Cannot remove the owner
-        let target_role = self.team_repo.get_user_role(team_id, user_id).await?
+        let target_role = self
+            .team_repo
+            .get_user_role(team_id, user_id)
+            .await?
             .ok_or(AppError::NotFound("Member not found".to_string()))?;
 
         if target_role == TeamRole::Owner {
-            return Err(AppError::BadRequest("Cannot remove the owner of the team".to_string()));
+            return Err(AppError::BadRequest(
+                "Cannot remove the owner of the team".to_string(),
+            ));
         }
 
         self.team_repo.remove_member(team_id, user_id).await?;
         Ok(())
     }
 
-    pub async fn update_member_role(&self, team_id: &str, user_id: &str, role: TeamRole, actor_id: &str) -> Result<()> {
-        self.verify_permission(team_id, actor_id, TeamRole::Admin).await?;
+    pub async fn update_member_role(
+        &self,
+        team_id: &str,
+        user_id: &str,
+        role: TeamRole,
+        actor_id: &str,
+    ) -> Result<()> {
+        self.verify_permission(team_id, actor_id, TeamRole::Admin)
+            .await?;
 
         // Cannot change the owner's role
-        let target_role = self.team_repo.get_user_role(team_id, user_id).await?
+        let target_role = self
+            .team_repo
+            .get_user_role(team_id, user_id)
+            .await?
             .ok_or(AppError::NotFound("Member not found".to_string()))?;
 
         if target_role == TeamRole::Owner {
-            return Err(AppError::BadRequest("Cannot change the role of the team owner".to_string()));
+            return Err(AppError::BadRequest(
+                "Cannot change the role of the team owner".to_string(),
+            ));
         }
 
-        self.team_repo.update_member_role(team_id, user_id, role).await
+        self.team_repo
+            .update_member_role(team_id, user_id, role)
+            .await
     }
 
     pub async fn get_members(&self, team_id: &str, actor_id: &str) -> Result<Vec<TeamMember>> {
-        self.verify_permission(team_id, actor_id, TeamRole::Viewer).await?;
+        self.verify_permission(team_id, actor_id, TeamRole::Viewer)
+            .await?;
         self.team_repo.get_members(team_id).await
     }
 
-    pub async fn verify_permission(&self, team_id: &str, user_id: &str, required_role: TeamRole) -> Result<()> {
-        let role = self.team_repo.get_user_role(team_id, user_id).await?
+    pub async fn verify_permission(
+        &self,
+        team_id: &str,
+        user_id: &str,
+        required_role: TeamRole,
+    ) -> Result<()> {
+        let role = self
+            .team_repo
+            .get_user_role(team_id, user_id)
+            .await?
             .ok_or(AppError::Forbidden("Access denied".to_string()))?;
 
         let role_priority = |r: TeamRole| match r {

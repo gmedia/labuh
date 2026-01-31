@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use sqlx::SqlitePool;
 use chrono::Utc;
+use sqlx::SqlitePool;
 
 use crate::domain::models::team::{Team, TeamMember, TeamRole};
 use crate::domain::TeamRepository;
@@ -128,7 +128,7 @@ impl TeamRepository for SqliteTeamRepository {
 
     async fn get_user_role(&self, team_id: &str, user_id: &str) -> Result<Option<TeamRole>> {
         let role_str = sqlx::query_scalar::<_, String>(
-            "SELECT role FROM team_members WHERE team_id = ? AND user_id = ?"
+            "SELECT role FROM team_members WHERE team_id = ? AND user_id = ?",
         )
         .bind(team_id)
         .bind(user_id)

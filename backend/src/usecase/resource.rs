@@ -1,9 +1,9 @@
-use std::sync::Arc;
-use chrono::{Utc, Duration};
 use crate::domain::models::resource::{ContainerResource, ResourceMetric};
 use crate::domain::resource_repository::ResourceRepository;
 use crate::domain::stack_repository::StackRepository;
 use crate::error::Result;
+use chrono::{Duration, Utc};
+use std::sync::Arc;
 
 use crate::domain::TeamRepository;
 use crate::error::AppError;
@@ -37,17 +37,29 @@ impl ResourceUsecase {
     ) -> Result<()> {
         // Verify ownership via team
         let stack = self.stack_repo.find_by_id_internal(stack_id).await?;
-        let _role = self.team_repo.get_user_role(&stack.team_id, user_id).await?
+        let _role = self
+            .team_repo
+            .get_user_role(&stack.team_id, user_id)
+            .await?
             .ok_or(AppError::Forbidden("Access denied".to_string()))?;
 
-        self.repo.update_resource_limits(stack_id, service_name, cpu, memory).await?;
+        self.repo
+            .update_resource_limits(stack_id, service_name, cpu, memory)
+            .await?;
         Ok(())
     }
 
-    pub async fn get_limits(&self, stack_id: &str, user_id: &str) -> Result<Vec<ContainerResource>> {
+    pub async fn get_limits(
+        &self,
+        stack_id: &str,
+        user_id: &str,
+    ) -> Result<Vec<ContainerResource>> {
         // Verify ownership
         let stack = self.stack_repo.find_by_id_internal(stack_id).await?;
-        let _role = self.team_repo.get_user_role(&stack.team_id, user_id).await?
+        let _role = self
+            .team_repo
+            .get_user_role(&stack.team_id, user_id)
+            .await?
             .ok_or(AppError::Forbidden("Access denied".to_string()))?;
 
         self.repo.list_resource_limits_for_stack(stack_id).await
@@ -61,7 +73,10 @@ impl ResourceUsecase {
     ) -> Result<Vec<ResourceMetric>> {
         // Verify ownership
         let stack = self.stack_repo.find_by_id_internal(stack_id).await?;
-        let _role = self.team_repo.get_user_role(&stack.team_id, user_id).await?
+        let _role = self
+            .team_repo
+            .get_user_role(&stack.team_id, user_id)
+            .await?
             .ok_or(AppError::Forbidden("Access denied".to_string()))?;
 
         let duration = match range {

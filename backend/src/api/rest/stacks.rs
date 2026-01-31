@@ -50,7 +50,12 @@ async fn create_stack(
     Json(request): Json<CreateStack>,
 ) -> Result<Json<StackResponse>> {
     let stack: crate::domain::models::Stack = usecase
-        .create_stack(&request.name, &request.compose_content, &current_user.id, &request.team_id)
+        .create_stack(
+            &request.name,
+            &request.compose_content,
+            &current_user.id,
+            &request.team_id,
+        )
         .await?;
     Ok(Json(stack.into()))
 }
@@ -284,7 +289,10 @@ pub fn stack_routes(usecase: Arc<StackUsecase>) -> Router {
         )
         .route("/{id}/compose", axum::routing::put(update_stack_compose))
         .route("/{id}/webhook/regenerate", post(regenerate_webhook_token))
-        .route("/{id}/automation", axum::routing::put(update_stack_automation))
+        .route(
+            "/{id}/automation",
+            axum::routing::put(update_stack_automation),
+        )
         .route("/{id}/rollback", post(rollback_stack))
         .with_state(usecase)
 }

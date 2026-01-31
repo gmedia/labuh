@@ -7,12 +7,12 @@ use uuid::Uuid;
 
 use crate::domain::compose::{parse_compose, service_to_container_request};
 use crate::domain::models::Stack;
+use crate::domain::resource_repository::ResourceRepository;
 use crate::domain::runtime::RuntimePort;
 use crate::domain::stack_repository::StackRepository;
 use crate::error::{AppError, Result};
 use crate::usecase::environment::EnvironmentUsecase;
 use crate::usecase::registry::RegistryUsecase;
-use crate::domain::resource_repository::ResourceRepository;
 
 use crate::domain::TeamRepository;
 
@@ -46,8 +46,6 @@ impl StackUsecase {
         }
     }
 
-
-
     pub fn runtime(&self) -> Arc<dyn RuntimePort> {
         self.runtime.clone()
     }
@@ -64,7 +62,10 @@ impl StackUsecase {
 
     pub async fn get_stack(&self, id: &str, user_id: &str) -> Result<Stack> {
         let stack = self.repo.find_by_id_internal(id).await?;
-        let _role = self.team_repo.get_user_role(&stack.team_id, user_id).await?
+        let _role = self
+            .team_repo
+            .get_user_role(&stack.team_id, user_id)
+            .await?
             .ok_or(AppError::Forbidden("Access denied".to_string()))?;
         Ok(stack)
     }
@@ -76,7 +77,10 @@ impl StackUsecase {
         user_id: &str,
         team_id: &str,
     ) -> Result<Stack> {
-        let _role = self.team_repo.get_user_role(team_id, user_id).await?
+        let _role = self
+            .team_repo
+            .get_user_role(team_id, user_id)
+            .await?
             .ok_or(AppError::Forbidden("Access denied".to_string()))?;
 
         let id = Uuid::new_v4().to_string();
@@ -123,7 +127,10 @@ impl StackUsecase {
         user_id: &str,
         team_id: &str,
     ) -> Result<Stack> {
-        let _role = self.team_repo.get_user_role(team_id, user_id).await?
+        let _role = self
+            .team_repo
+            .get_user_role(team_id, user_id)
+            .await?
             .ok_or(AppError::Forbidden("Access denied".to_string()))?;
 
         // 1. Setup git directory
@@ -131,12 +138,18 @@ impl StackUsecase {
         let target_dir = format!("backend/data/git/{}", id);
 
         // 2. Clone repository
-        let commit_hash = self.git_service.clone_or_pull(git_url, git_branch, &target_dir).await?;
+        let commit_hash = self
+            .git_service
+            .clone_or_pull(git_url, git_branch, &target_dir)
+            .await?;
 
         // 3. Read compose content
         let full_compose_path = Path::new(&target_dir).join(compose_path);
-        let compose_content = tokio::fs::read_to_string(full_compose_path).await
-            .map_err(|e| AppError::BadRequest(format!("Failed to read compose file from repo: {}", e)))?;
+        let compose_content = tokio::fs::read_to_string(full_compose_path)
+            .await
+            .map_err(|e| {
+                AppError::BadRequest(format!("Failed to read compose file from repo: {}", e))
+            })?;
 
         // 4. Create stack record
         let now = Utc::now().to_rfc3339();
@@ -176,19 +189,31 @@ impl StackUsecase {
 
     pub async fn sync_git(&self, id: &str, user_id: &str) -> Result<()> {
         let stack = self.get_stack(id, user_id).await?;
-        let git_url = stack.git_url.clone().ok_or_else(|| AppError::BadRequest("Stack not linked to Git".to_string()))?;
-        let git_branch = stack.git_branch.clone().unwrap_or_else(|| "main".to_string());
+        let git_url = stack
+            .git_url
+            .clone()
+            .ok_or_else(|| AppError::BadRequest("Stack not linked to Git".to_string()))?;
+        let git_branch = stack
+            .git_branch
+            .clone()
+            .unwrap_or_else(|| "main".to_string());
 
         let target_dir = format!("backend/data/git/{}", id);
 
         // 1. Pull latest
-        let commit_hash = self.git_service.clone_or_pull(&git_url, &git_branch, &target_dir).await?;
+        let commit_hash = self
+            .git_service
+            .clone_or_pull(&git_url, &git_branch, &target_dir)
+            .await?;
 
         // 2. Extract compose path (fixed to docker-compose.yml for now, or we could store it)
         let compose_path = "docker-compose.yml";
         let full_compose_path = Path::new(&target_dir).join(compose_path);
-        let compose_content = tokio::fs::read_to_string(full_compose_path).await
-            .map_err(|e| AppError::BadRequest(format!("Failed to read compose file from repo: {}", e)))?;
+        let compose_content = tokio::fs::read_to_string(full_compose_path)
+            .await
+            .map_err(|e| {
+                AppError::BadRequest(format!("Failed to read compose file from repo: {}", e))
+            })?;
 
         // 3. Update stack record
         self.repo.update_compose(id, &compose_content).await?;
@@ -233,7 +258,8 @@ impl StackUsecase {
                 .get_credentials_for_image_internal(&stack.team_id, &config.image)
                 .await?;
             self.runtime.pull_image(&config.image, creds).await?;
-            self.apply_resource_limits(&stack.id, &service.name, &mut config).await?;
+            self.apply_resource_limits(&stack.id, &service.name, &mut config)
+                .await?;
             self.runtime.create_container(config).await?;
         }
         Ok(())
@@ -319,7 +345,8 @@ impl StackUsecase {
                 }
             }
 
-            self.apply_resource_limits(id, &service.name, &mut config).await?;
+            self.apply_resource_limits(id, &service.name, &mut config)
+                .await?;
             self.runtime.create_container(config).await?;
         }
 
@@ -327,7 +354,11 @@ impl StackUsecase {
 
         // 2. Perform health check
         if let Err(e) = self.perform_health_check(id).await {
-            tracing::error!("Health check failed for stack {}: {}. Triggering rollback...", id, e);
+            tracing::error!(
+                "Health check failed for stack {}: {}. Triggering rollback...",
+                id,
+                e
+            );
             self.rollback_stack(id, &stack.user_id).await?;
             return Err(e);
         }
@@ -479,7 +510,11 @@ impl StackUsecase {
             _ => return Ok(()), // No health check configured
         };
 
-        tracing::info!("Performing health check for stack {} on {}", id, health_path);
+        tracing::info!(
+            "Performing health check for stack {} on {}",
+            id,
+            health_path
+        );
 
         // Wait for containers to settle
         tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
@@ -490,9 +525,10 @@ impl StackUsecase {
                 .build()
                 .map_err(|e| AppError::Internal(e.to_string()))?;
 
-            let res = client.get(health_path).send().await.map_err(|e| {
-                AppError::Internal(format!("Health check request failed: {}", e))
-            })?;
+            let res =
+                client.get(health_path).send().await.map_err(|e| {
+                    AppError::Internal(format!("Health check request failed: {}", e))
+                })?;
 
             if !res.status().is_success() {
                 return Err(AppError::Internal(format!(
@@ -530,7 +566,8 @@ impl StackUsecase {
         }
 
         if !images.is_empty() {
-            let json = serde_json::to_string(&images).map_err(|e| AppError::Internal(e.to_string()))?;
+            let json =
+                serde_json::to_string(&images).map_err(|e| AppError::Internal(e.to_string()))?;
             self.repo.update_last_stable_images(id, Some(json)).await?;
         }
 
@@ -544,11 +581,12 @@ impl StackUsecase {
         })?;
 
         let stable_images: std::collections::HashMap<String, String> =
-            serde_json::from_str(&stable_images_json).map_err(|e| AppError::Internal(e.to_string()))?;
+            serde_json::from_str(&stable_images_json)
+                .map_err(|e| AppError::Internal(e.to_string()))?;
 
-        let compose_content = stack.compose_content.ok_or_else(|| {
-            AppError::BadRequest("Stack has no compose content".to_string())
-        })?;
+        let compose_content = stack
+            .compose_content
+            .ok_or_else(|| AppError::BadRequest("Stack has no compose content".to_string()))?;
 
         self.repo.update_status(id, "rolling_back").await?;
         let parsed = parse_compose(&compose_content)?;
@@ -669,7 +707,8 @@ impl StackUsecase {
                 let _ = self.runtime.remove_container(&c.id, true).await;
             }
         }
-        self.apply_resource_limits(stack_id, &service.name, &mut config).await?;
+        self.apply_resource_limits(stack_id, &service.name, &mut config)
+            .await?;
         self.runtime.create_container(config).await?;
         Ok(())
     }

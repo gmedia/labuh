@@ -20,7 +20,9 @@ async fn list_credentials(
     Extension(current_user): Extension<CurrentUser>,
     Query(query): Query<TeamQuery>,
 ) -> Result<Json<Vec<RegistryCredentialResponse>>> {
-    let credentials = usecase.list_credentials(&query.team_id, &current_user.id).await?;
+    let credentials = usecase
+        .list_credentials(&query.team_id, &current_user.id)
+        .await?;
     Ok(Json(credentials))
 }
 

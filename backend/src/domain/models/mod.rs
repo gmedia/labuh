@@ -19,6 +19,6 @@ pub use registry::{CreateRegistryCredential, RegistryCredential, RegistryCredent
 pub use resource::{ContainerResource, ResourceMetric, UpdateResourceRequest};
 pub use stack::{CreateStack, Stack, StackHealth, StackLogEntry, StackResponse};
 pub use system::{LoadAverage, SystemStats};
-pub use team::{Team, TeamMember, TeamRole, TeamResponse, CreateTeamRequest};
+pub use team::{CreateTeamRequest, Team, TeamMember, TeamResponse, TeamRole};
 pub use template::{Template, TemplateEnv, TemplateResponse};
 pub use user::{AuthResponse, CreateUser, LoginRequest, User, UserResponse};

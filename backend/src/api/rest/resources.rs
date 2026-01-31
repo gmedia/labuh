@@ -6,7 +6,7 @@ use axum::{
 use std::sync::Arc;
 
 use crate::api::middleware::auth::CurrentUser;
-use crate::domain::models::resource::{ResourceMetric, UpdateResourceRequest, ContainerResource};
+use crate::domain::models::resource::{ContainerResource, ResourceMetric, UpdateResourceRequest};
 use crate::error::Result;
 use crate::usecase::resource::ResourceUsecase;
 
@@ -49,14 +49,19 @@ async fn get_stack_metrics(
     Query(query): Query<MetricsQuery>,
 ) -> Result<Json<Vec<ResourceMetric>>> {
     let range = query.range.unwrap_or_else(|| "1h".to_string());
-    let metrics = usecase.get_metrics(&stack_id, &current_user.id, &range).await?;
+    let metrics = usecase
+        .get_metrics(&stack_id, &current_user.id, &range)
+        .await?;
     Ok(Json(metrics))
 }
 
 pub fn resource_routes(usecase: Arc<ResourceUsecase>) -> Router {
     Router::new()
         .route("/{stack_id}/limits", get(list_stack_limits))
-        .route("/{stack_id}/services/{service_name}/limits", put(update_service_limits))
+        .route(
+            "/{stack_id}/services/{service_name}/limits",
+            put(update_service_limits),
+        )
         .route("/{stack_id}/metrics", get(get_stack_metrics))
         .with_state(usecase)
 }
