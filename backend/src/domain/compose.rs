@@ -207,7 +207,9 @@ pub fn parse_compose(yaml_content: &str) -> Result<ParsedCompose> {
                 dockerfile,
             }) => Some(ParsedBuild {
                 context: context.clone(),
-                dockerfile: dockerfile.clone().unwrap_or_else(|| "Dockerfile".to_string()),
+                dockerfile: dockerfile
+                    .clone()
+                    .unwrap_or_else(|| "Dockerfile".to_string()),
             }),
             None => None,
         };

@@ -126,7 +126,9 @@ async fn container_exec(
     Path(id): Path<String>,
 ) -> Result<axum::response::Response> {
     // Verify ownership
-    let _ = stack_usecase.verify_container_ownership(&id, &user.id).await?;
+    let _ = stack_usecase
+        .verify_container_ownership(&id, &user.id)
+        .await?;
 
     Ok(ws.on_upgrade(move |socket| handle_socket(socket, stack_usecase, id)))
 }
@@ -149,7 +151,9 @@ async fn handle_socket(
         Ok(e) => e,
         Err(e) => {
             let _ = socket
-                .send(axum::extract::ws::Message::Text(format!("Error: {}", e).into()))
+                .send(axum::extract::ws::Message::Text(
+                    format!("Error: {}", e).into(),
+                ))
                 .await;
             return;
         }
@@ -168,7 +172,9 @@ async fn handle_socket(
         }
         Err(e) => {
             let _ = socket
-                .send(axum::extract::ws::Message::Text(format!("Error: {}", e).into()))
+                .send(axum::extract::ws::Message::Text(
+                    format!("Error: {}", e).into(),
+                ))
                 .await;
             return;
         }

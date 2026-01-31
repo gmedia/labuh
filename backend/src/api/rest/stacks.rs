@@ -291,23 +291,27 @@ async fn build_logs_stream(
     State(usecase): State<Arc<StackUsecase>>,
     Extension(current_user): Extension<CurrentUser>,
     Path(id): Path<String>,
-) -> Result<axum::response::Sse<impl tokio_stream::Stream<Item = std::result::Result<axum::response::sse::Event, std::convert::Infallible>>>> {
+) -> Result<
+    axum::response::Sse<
+        impl tokio_stream::Stream<
+            Item = std::result::Result<axum::response::sse::Event, std::convert::Infallible>,
+        >,
+    >,
+> {
     // Verify ownership
     let _stack = usecase.get_stack(&id, &current_user.id).await?;
 
     let rx = usecase.subscribe_build_logs();
     let stream = tokio_stream::wrappers::BroadcastStream::new(rx);
 
-    let filtered_stream = tokio_stream::StreamExt::filter_map(stream, move |res| {
-        match res {
-            Ok(msg) if msg.stack_id == id => {
-                let json = serde_json::to_string(&msg).ok()?;
-                Some(std::result::Result::Ok(
-                    axum::response::sse::Event::default().data(json),
-                ))
-            }
-            _ => None,
+    let filtered_stream = tokio_stream::StreamExt::filter_map(stream, move |res| match res {
+        Ok(msg) if msg.stack_id == id => {
+            let json = serde_json::to_string(&msg).ok()?;
+            Some(std::result::Result::Ok(
+                axum::response::sse::Event::default().data(json),
+            ))
         }
+        _ => None,
     });
 
     Ok(axum::response::Sse::new(filtered_stream))
@@ -335,10 +339,7 @@ pub fn stack_routes(usecase: Arc<StackUsecase>) -> Router {
             "/{id}/services/{service_name}/redeploy",
             post(redeploy_service),
         )
-        .route(
-            "/{id}/services/{service_name}/build",
-            post(build_service),
-        )
+        .route("/{id}/services/{service_name}/build", post(build_service))
         .route("/{id}/compose", axum::routing::put(update_stack_compose))
         .route("/{id}/webhook/regenerate", post(regenerate_webhook_token))
         .route(

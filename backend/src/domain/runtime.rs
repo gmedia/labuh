@@ -24,10 +24,7 @@ pub trait RuntimePort: Send + Sync {
         id: &str,
         cmd: Vec<String>,
     ) -> Result<bollard::exec::CreateExecResults>;
-    async fn connect_exec(
-        &self,
-        exec_id: &str,
-    ) -> Result<bollard::exec::StartExecResults>;
+    async fn connect_exec(&self, exec_id: &str) -> Result<bollard::exec::StartExecResults>;
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

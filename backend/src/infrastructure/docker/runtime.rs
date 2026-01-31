@@ -374,7 +374,9 @@ impl RuntimePort for DockerRuntimeAdapter {
                         }
                     }
                     Err(e) => {
-                        let _ = tx.send(Err(AppError::ContainerRuntime(e.to_string()))).await;
+                        let _ = tx
+                            .send(Err(AppError::ContainerRuntime(e.to_string())))
+                            .await;
                         break;
                     }
                 }
@@ -409,10 +411,7 @@ impl RuntimePort for DockerRuntimeAdapter {
         Ok(exec)
     }
 
-    async fn connect_exec(
-        &self,
-        exec_id: &str,
-    ) -> Result<bollard::exec::StartExecResults> {
+    async fn connect_exec(&self, exec_id: &str) -> Result<bollard::exec::StartExecResults> {
         use bollard::exec::StartExecOptions;
 
         let options = StartExecOptions {

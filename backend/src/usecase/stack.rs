@@ -121,7 +121,8 @@ impl StackUsecase {
 
         self.repo.create(stack.clone()).await?;
 
-        self.build_stack_services(&stack, compose_content, None, None).await?;
+        self.build_stack_services(&stack, compose_content, None, None)
+            .await?;
 
         self.repo.update_status(&id, "stopped").await?;
         self.get_stack(&id, user_id).await
@@ -190,7 +191,8 @@ impl StackUsecase {
         self.repo.create(stack.clone()).await?;
 
         // 5. Build services
-        self.build_stack_services(&stack, &compose_content, Some(&target_dir), None).await?;
+        self.build_stack_services(&stack, &compose_content, Some(&target_dir), None)
+            .await?;
 
         self.repo.update_status(&id, "stopped").await?;
         self.get_stack(&id, user_id).await
@@ -432,22 +434,19 @@ impl StackUsecase {
             .await?;
 
         // Send a "Finished" log message
-        let _ = self.build_log_tx.send(crate::domain::models::stack::BuildLogMessage {
-            stack_id: id.to_string(),
-            service: "system".to_string(),
-            message: "Build process finished successfully".to_string(),
-            is_error: false,
-        });
+        let _ = self
+            .build_log_tx
+            .send(crate::domain::models::stack::BuildLogMessage {
+                stack_id: id.to_string(),
+                service: "system".to_string(),
+                message: "Build process finished successfully".to_string(),
+                is_error: false,
+            });
 
         Ok(())
     }
 
-    pub async fn build_service(
-        &self,
-        id: &str,
-        service_name: &str,
-        user_id: &str,
-    ) -> Result<()> {
+    pub async fn build_service(&self, id: &str, service_name: &str, user_id: &str) -> Result<()> {
         let stack = self.get_stack(id, user_id).await?;
         let compose_content = stack.compose_content.clone().ok_or_else(|| {
             crate::error::AppError::BadRequest("Stack has no compose content".to_string())
@@ -470,12 +469,14 @@ impl StackUsecase {
         .await?;
 
         // Send a "Finished" log message
-        let _ = self.build_log_tx.send(crate::domain::models::stack::BuildLogMessage {
-            stack_id: id.to_string(),
-            service: service_name.to_string(),
-            message: format!("Build for service '{}' finished successfully", service_name),
-            is_error: false,
-        });
+        let _ = self
+            .build_log_tx
+            .send(crate::domain::models::stack::BuildLogMessage {
+                stack_id: id.to_string(),
+                service: service_name.to_string(),
+                message: format!("Build for service '{}' finished successfully", service_name),
+                is_error: false,
+            });
 
         Ok(())
     }
