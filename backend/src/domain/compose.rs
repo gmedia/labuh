@@ -55,10 +55,8 @@ pub enum ComposeEnvironment {
     Map(HashMap<String, Option<String>>),
 }
 
-
 #[derive(Debug, Deserialize, Default)]
 pub struct ComposeNetwork {}
-
 
 /// Result of parsing a compose file
 #[derive(Debug)]
@@ -90,7 +88,6 @@ const BLOCKED_HOST_PATHS: &[&str] = &[
     "/", "/bin", "/boot", "/dev", "/etc", "/home", "/lib", "/lib64", "/opt", "/proc", "/root",
     "/run", "/sbin", "/sys", "/tmp", "/usr", "/var",
 ];
-
 
 /// Validate volume mounts for security issues
 pub fn validate_volume_security(volumes: &[String]) -> Result<Vec<String>> {
@@ -202,7 +199,9 @@ pub fn parse_compose(yaml_content: &str) -> Result<ParsedCompose> {
             ComposeEnvironment::List(list) => list,
             ComposeEnvironment::Map(map) => map
                 .into_iter()
-                .filter_map(|(k, v): (String, Option<String>)| v.map(|val| format!("{}={}", k, val)))
+                .filter_map(|(k, v): (String, Option<String>)| {
+                    v.map(|val| format!("{}={}", k, val))
+                })
                 .collect(),
         };
 
@@ -257,7 +256,10 @@ pub fn parse_compose(yaml_content: &str) -> Result<ParsedCompose> {
 
     let _networks: Vec<String> = compose.networks.keys().cloned().collect();
 
-    Ok(ParsedCompose { services, _networks })
+    Ok(ParsedCompose {
+        services,
+        _networks,
+    })
 }
 
 /// Convert parsed service to container creation request

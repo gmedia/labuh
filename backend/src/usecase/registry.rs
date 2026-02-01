@@ -27,7 +27,6 @@ impl RegistryUsecase {
         Ok(creds.into_iter().map(Into::into).collect())
     }
 
-
     pub async fn add_credential(
         &self,
         user_id: &str,

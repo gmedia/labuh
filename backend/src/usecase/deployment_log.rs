@@ -65,5 +65,4 @@ impl DeploymentLogUsecase {
         let saved = self.repo.save(log).await?;
         Ok(saved.into())
     }
-
 }

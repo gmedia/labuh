@@ -27,7 +27,6 @@ impl RegistryRepository for SqliteRegistryRepository {
         Ok(credentials)
     }
 
-
     async fn find_by_url(&self, team_id: &str, url: &str) -> Result<Option<RegistryCredential>> {
         let credential = sqlx::query_as::<_, RegistryCredential>(
             "SELECT * FROM registry_credentials WHERE team_id = ? AND registry_url = ? LIMIT 1",

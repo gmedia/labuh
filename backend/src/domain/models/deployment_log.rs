@@ -12,7 +12,6 @@ pub struct DeploymentLog {
     pub finished_at: Option<String>,
 }
 
-
 #[derive(Debug, Serialize)]
 pub struct DeploymentLogResponse {
     pub id: String,

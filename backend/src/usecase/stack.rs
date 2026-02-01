@@ -49,9 +49,7 @@ impl StackUsecase {
         }
     }
 
-    pub fn subscribe_build_logs(
-        &self,
-    ) -> tokio::sync::broadcast::Receiver<BuildLogMessage> {
+    pub fn subscribe_build_logs(&self) -> tokio::sync::broadcast::Receiver<BuildLogMessage> {
         self.build_log_tx.subscribe()
     }
 
@@ -269,25 +267,21 @@ impl StackUsecase {
                         match log_result {
                             Ok(log) => {
                                 tracing::debug!("Build [{}]: {}", service.name, log);
-                                let _ = self.build_log_tx.send(
-                                    BuildLogMessage {
-                                        stack_id: stack.id.clone(),
-                                        service: service.name.clone(),
-                                        message: log,
-                                        is_error: false,
-                                    },
-                                );
+                                let _ = self.build_log_tx.send(BuildLogMessage {
+                                    stack_id: stack.id.clone(),
+                                    service: service.name.clone(),
+                                    message: log,
+                                    is_error: false,
+                                });
                             }
                             Err(e) => {
                                 tracing::error!("Build error [{}]: {}", service.name, e);
-                                let _ = self.build_log_tx.send(
-                                    BuildLogMessage {
-                                        stack_id: stack.id.clone(),
-                                        service: service.name.clone(),
-                                        message: e.to_string(),
-                                        is_error: true,
-                                    },
-                                );
+                                let _ = self.build_log_tx.send(BuildLogMessage {
+                                    stack_id: stack.id.clone(),
+                                    service: service.name.clone(),
+                                    message: e.to_string(),
+                                    is_error: true,
+                                });
                                 return Err(e);
                             }
                         }
@@ -494,11 +488,7 @@ impl StackUsecase {
         Ok(())
     }
 
-    pub async fn get_stack_health(
-        &self,
-        id: &str,
-        user_id: &str,
-    ) -> Result<StackHealth> {
+    pub async fn get_stack_health(&self, id: &str, user_id: &str) -> Result<StackHealth> {
         let stack = self.get_stack(id, user_id).await?;
         let containers = self.get_stack_containers(&stack.id).await?;
 

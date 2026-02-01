@@ -11,14 +11,12 @@ pub mod user;
 
 pub use deployment_log::{DeploymentLog, DeploymentLogResponse};
 pub use domain::{CreateDomain, Domain, DomainResponse};
-pub use environment::{
-    BulkSetEnvVarRequest, SetEnvVarRequest, StackEnvVar, StackEnvVarResponse,
-};
+pub use environment::{BulkSetEnvVarRequest, SetEnvVarRequest, StackEnvVar, StackEnvVarResponse};
 pub use registry::{CreateRegistryCredential, RegistryCredential, RegistryCredentialResponse};
 pub use resource::{ContainerResource, ResourceMetric};
 pub use stack::{
-    BuildLogMessage, ContainerHealth, CreateStack, Stack, StackBackup, StackHealth,
-    StackLogEntry, StackResponse,
+    BuildLogMessage, ContainerHealth, CreateStack, Stack, StackBackup, StackHealth, StackLogEntry,
+    StackResponse,
 };
 pub use system::{LoadAverage, SystemStats};
 pub use team::{CreateTeamRequest, Team, TeamMember, TeamResponse, TeamRole};

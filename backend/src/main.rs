@@ -23,9 +23,7 @@ use crate::api::rest::{
     team_routes, template_routes,
 };
 use crate::config::Config;
-use crate::services::{
-    AuthService, CaddyService, ContainerService, DomainService,
-};
+use crate::services::{AuthService, CaddyService, ContainerService, DomainService};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -216,7 +214,6 @@ async fn main() -> anyhow::Result<()> {
             scheduler.start().await;
         });
 
-
         // Create deployment log components (New Architecture)
         let log_repo = Arc::new(
             crate::infrastructure::sqlite::deployment_log::SqliteDeploymentLogRepository::new(
@@ -226,7 +223,6 @@ async fn main() -> anyhow::Result<()> {
         let log_usecase = Arc::new(crate::usecase::deployment_log::DeploymentLogUsecase::new(
             log_repo,
         ));
-
 
         protected_routes = protected_routes
             .nest("/teams", team_routes(team_usecase.clone()))

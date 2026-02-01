@@ -1,4 +1,6 @@
-use bollard::container::{ListContainersOptions, StartContainerOptions, StopContainerOptions, RemoveContainerOptions};
+use bollard::container::{
+    ListContainersOptions, RemoveContainerOptions, StartContainerOptions, StopContainerOptions,
+};
 use bollard::image::{CreateImageOptions, ListImagesOptions, RemoveImageOptions};
 use bollard::Docker;
 use futures::StreamExt;
@@ -47,7 +49,6 @@ pub struct ImageInspect {
     pub created: String,
     pub size: i64,
 }
-
 
 pub struct ContainerService {
     pub docker: Arc<Docker>,
@@ -105,7 +106,6 @@ impl ContainerService {
             .collect())
     }
 
-
     /// Start a container
     pub async fn start_container(&self, id: &str) -> Result<()> {
         self.docker
@@ -137,7 +137,6 @@ impl ContainerService {
             .map_err(|e| AppError::ContainerRuntime(e.to_string()))?;
         Ok(())
     }
-
 
     /// List all images
     pub async fn list_images(&self) -> Result<Vec<ImageInfo>> {

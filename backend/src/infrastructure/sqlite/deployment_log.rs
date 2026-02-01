@@ -71,5 +71,4 @@ impl DeploymentLogRepository for SqliteDeploymentLogRepository {
 
         Ok(log)
     }
-
 }

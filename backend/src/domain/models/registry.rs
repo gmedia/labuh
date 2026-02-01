@@ -50,4 +50,3 @@ impl From<RegistryCredential> for RegistryCredentialResponse {
         }
     }
 }
-

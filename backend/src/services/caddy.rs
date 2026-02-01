@@ -9,7 +9,6 @@ pub struct CaddyService {
     client: Client,
 }
 
-
 impl CaddyService {
     pub fn new(admin_api_url: String) -> Self {
         Self {
@@ -226,8 +225,6 @@ impl CaddyService {
         Ok(())
     }
 
-
-
     /// Initialize a new route
     pub async fn add_route(&self, domain: &str, upstream: &str) -> Result<()> {
         // Ensure srv0 structure exists first
@@ -370,5 +367,4 @@ impl CaddyService {
             )))
         }
     }
-
 }

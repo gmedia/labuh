@@ -6,7 +6,9 @@ use axum::{
 use std::sync::Arc;
 
 use crate::api::middleware::auth::CurrentUser;
-use crate::domain::models::{CreateStack, Stack, StackBackup, StackHealth, StackLogEntry, StackResponse};
+use crate::domain::models::{
+    CreateStack, Stack, StackBackup, StackHealth, StackLogEntry, StackResponse,
+};
 use crate::error::Result;
 use crate::usecase::stack::StackUsecase;
 
