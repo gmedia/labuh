@@ -1,8 +1,8 @@
 use reqwest::Client;
 use std::sync::Arc;
 
+use crate::domain::runtime::{ContainerConfig, RuntimePort};
 use crate::error::{AppError, Result};
-use crate::domain::runtime::{RuntimePort, ContainerConfig};
 
 /// Caddy Admin API client for dynamic configuration
 pub struct CaddyClient {
@@ -52,10 +52,7 @@ impl CaddyClient {
     }
 
     /// Ensure Caddy container is running
-    pub async fn bootstrap(
-        &self,
-        runtime: &Arc<dyn RuntimePort>,
-    ) -> Result<()> {
+    pub async fn bootstrap(&self, runtime: &Arc<dyn RuntimePort>) -> Result<()> {
         let container_name = "labuh-caddy";
 
         // Check if running
@@ -65,17 +62,17 @@ impl CaddyClient {
             .find(|c| c.names.iter().any(|n| n.contains(container_name)));
 
         if let Some(c) = existing {
-             // We can't easily check ports from list_containers result in simpler struct,
-             // but we can trust it if it's running or inspect it.
-             // Let's inspect to be safe if status is running.
-             if c.state == "running" {
-                 let _info = runtime.inspect_container(&c.id).await?;
-                  // Check if port 2019 is bound (required for Admin API)
-                 // Note: ContainerInfo from runtime might not have ports detail structure as bollard,
-                 // checking generic validity.
-                 // For now, assuming if running it's fine or we restart.
-                 return Ok(());
-             }
+            // We can't easily check ports from list_containers result in simpler struct,
+            // but we can trust it if it's running or inspect it.
+            // Let's inspect to be safe if status is running.
+            if c.state == "running" {
+                let _info = runtime.inspect_container(&c.id).await?;
+                // Check if port 2019 is bound (required for Admin API)
+                // Note: ContainerInfo from runtime might not have ports detail structure as bollard,
+                // checking generic validity.
+                // For now, assuming if running it's fine or we restart.
+                return Ok(());
+            }
 
             if c.state != "running" {
                 tracing::info!("Starting existing Caddy container...");
@@ -104,7 +101,7 @@ impl CaddyClient {
                     == 0)
         {
             tracing::info!("Caddyfile not found. Creating default...");
-             let default_caddyfile = r#"{
+            let default_caddyfile = r#"{
     admin 0.0.0.0:2019
 }
 
@@ -132,7 +129,7 @@ impl CaddyClient {
         ];
 
         let volumes = vec![
-             format!(
+            format!(
                 "{}/Caddyfile:/etc/caddy/Caddyfile",
                 std::env::current_dir().unwrap().to_string_lossy()
             ),

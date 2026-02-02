@@ -20,7 +20,12 @@ impl CloudflareProvider {
 
 #[async_trait]
 impl DnsProvider for CloudflareProvider {
-    async fn create_record(&self, domain: &str, record_type: &str, content: &str) -> Result<String> {
+    async fn create_record(
+        &self,
+        domain: &str,
+        record_type: &str,
+        content: &str,
+    ) -> Result<String> {
         let zone_id = self.get_zone_id(domain).await?;
         let url = format!(
             "https://api.cloudflare.com/client/v4/zones/{}/dns_records",
@@ -137,7 +142,13 @@ impl DnsProvider for CloudflareProvider {
         Ok(all_records)
     }
 
-    async fn update_record(&self, domain: &str, record_id: &str, record_type: &str, content: &str) -> Result<()> {
+    async fn update_record(
+        &self,
+        domain: &str,
+        record_id: &str,
+        record_type: &str,
+        content: &str,
+    ) -> Result<()> {
         let zone_id = self.get_zone_id(domain).await?;
         let url = format!(
             "https://api.cloudflare.com/client/v4/zones/{}/dns_records/{}",
@@ -216,19 +227,19 @@ impl CloudflareProvider {
         let mut best_match: Option<CloudflareZone> = None;
 
         for zone in zones {
-             // Check if domain ends with zone name (e.g. sub.example.com ends with example.com)
-             // We need to handle the root case carefully.
-             if domain == zone.name || domain.ends_with(&format!(".{}", zone.name)) {
-                 match &best_match {
-                     None => best_match = Some(zone),
-                     Some(current) => {
-                         // Pick the longer one (more specific)
-                         if zone.name.len() > current.name.len() {
-                             best_match = Some(zone);
-                         }
-                     }
-                 }
-             }
+            // Check if domain ends with zone name (e.g. sub.example.com ends with example.com)
+            // We need to handle the root case carefully.
+            if domain == zone.name || domain.ends_with(&format!(".{}", zone.name)) {
+                match &best_match {
+                    None => best_match = Some(zone),
+                    Some(current) => {
+                        // Pick the longer one (more specific)
+                        if zone.name.len() > current.name.len() {
+                            best_match = Some(zone);
+                        }
+                    }
+                }
+            }
         }
 
         match best_match {

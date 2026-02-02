@@ -38,9 +38,7 @@ impl DnsUsecase {
                 let config: CloudflareConfig = serde_json::from_str(&config_record.config)
                     .map_err(|e| AppError::Internal(format!("Invalid Cloudflare config: {}", e)))?;
 
-                Ok(Box::new(CloudflareProvider::new(
-                    config.api_token,
-                )))
+                Ok(Box::new(CloudflareProvider::new(config.api_token)))
             }
             DomainProvider::CPanel => Ok(Box::new(CPanelProvider::new())),
         }

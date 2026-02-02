@@ -7,8 +7,8 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 use crate::api::middleware::auth::CurrentUser;
-use crate::error::Result;
 use crate::domain::runtime::{ImageInfo, ImageInspect, RuntimePort};
+use crate::error::Result;
 use crate::usecase::registry::RegistryUsecase;
 
 #[derive(Clone)]
@@ -45,10 +45,7 @@ async fn pull_image(
         .registry_usecase
         .get_credentials_for_image(&user.id, &request.team_id, &request.image)
         .await?;
-    state
-        .runtime
-        .pull_image(&request.image, creds)
-        .await?;
+    state.runtime.pull_image(&request.image, creds).await?;
     Ok(Json(
         serde_json::json!({ "status": "pulled", "image": request.image }),
     ))

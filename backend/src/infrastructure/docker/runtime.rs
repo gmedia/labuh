@@ -83,8 +83,16 @@ impl RuntimePort for DockerRuntimeAdapter {
 
                 let parts: Vec<&str> = port_pair.split(':').collect();
                 let (host_ip, host_port, container_port) = match parts.len() {
-                    3 => (Some(parts[0].to_string()), Some(parts[1].to_string()), parts[2].to_string()),
-                    2 => (Some("0.0.0.0".to_string()), Some(parts[0].to_string()), parts[1].to_string()),
+                    3 => (
+                        Some(parts[0].to_string()),
+                        Some(parts[1].to_string()),
+                        parts[2].to_string(),
+                    ),
+                    2 => (
+                        Some("0.0.0.0".to_string()),
+                        Some(parts[0].to_string()),
+                        parts[1].to_string(),
+                    ),
                     _ => (None, None, parts[0].to_string()),
                 };
 
@@ -490,7 +498,7 @@ impl RuntimePort for DockerRuntimeAdapter {
     }
 
     async fn inspect_image(&self, id: &str) -> Result<crate::domain::runtime::ImageInspect> {
-         let image = self
+        let image = self
             .docker
             .inspect_image(id)
             .await
@@ -531,7 +539,12 @@ impl RuntimePort for DockerRuntimeAdapter {
         use bollard::network::CreateNetworkOptions;
 
         // Check if exists
-        if self.docker.inspect_network::<String>(name, None).await.is_ok() {
+        if self
+            .docker
+            .inspect_network::<String>(name, None)
+            .await
+            .is_ok()
+        {
             return Ok(());
         }
 
@@ -541,29 +554,32 @@ impl RuntimePort for DockerRuntimeAdapter {
             ..Default::default()
         };
 
-        self.docker.create_network(options).await.map_err(|e| AppError::ContainerRuntime(e.to_string()))?;
+        self.docker
+            .create_network(options)
+            .await
+            .map_err(|e| AppError::ContainerRuntime(e.to_string()))?;
         Ok(())
     }
 
     async fn connect_network(&self, container: &str, network: &str) -> Result<()> {
-        use bollard::network::ConnectNetworkOptions;
         use bollard::models::EndpointSettings;
+        use bollard::network::ConnectNetworkOptions;
 
-         let config = ConnectNetworkOptions {
+        let config = ConnectNetworkOptions {
             container,
             endpoint_config: EndpointSettings::default(),
         };
 
         match self.docker.connect_network(network, config).await {
-             Ok(_) => Ok(()),
-             Err(e) => {
-                 let err_str = e.to_string();
-                 if err_str.contains("403") || err_str.contains("already exists") {
-                     Ok(())
-                 } else {
-                     Err(crate::error::AppError::ContainerRuntime(err_str))
-                 }
-             }
+            Ok(_) => Ok(()),
+            Err(e) => {
+                let err_str = e.to_string();
+                if err_str.contains("403") || err_str.contains("already exists") {
+                    Ok(())
+                } else {
+                    Err(crate::error::AppError::ContainerRuntime(err_str))
+                }
+            }
         }
     }
 }

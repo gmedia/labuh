@@ -102,10 +102,7 @@ fn create_protected_routes(state: Arc<AppState>) -> Router {
             .nest("/containers", container_routes(stack_uc.clone()))
             .nest(
                 "/images",
-                image_routes(
-                    state.runtime.clone(),
-                    registry_uc.clone(),
-                ),
+                image_routes(state.runtime.clone(), registry_uc.clone()),
             )
             .nest("/stacks", stack_routes(stack_uc.clone()))
             .nest("/stacks", domain_routes(state.clone()))

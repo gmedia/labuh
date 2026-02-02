@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use chrono::Utc;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::domain::models::{AuthResponse, CreateUser, LoginRequest, User};
@@ -21,7 +21,7 @@ impl AuthUsecase {
     pub async fn register(&self, input: CreateUser) -> Result<AuthResponse> {
         // Check if user already exists
         if self.repo.find_by_email(&input.email).await?.is_some() {
-             return Err(AppError::Conflict("Email already registered".to_string()));
+            return Err(AppError::Conflict("Email already registered".to_string()));
         }
 
         // Hash password
@@ -42,7 +42,11 @@ impl AuthUsecase {
         };
 
         let created_user = self.repo.create(user).await?;
-        let token = self.jwt_service.generate_token(&created_user.id, &created_user.email, &created_user.role)?;
+        let token = self.jwt_service.generate_token(
+            &created_user.id,
+            &created_user.email,
+            &created_user.role,
+        )?;
 
         Ok(AuthResponse {
             token,
@@ -51,13 +55,18 @@ impl AuthUsecase {
     }
 
     pub async fn login(&self, input: LoginRequest) -> Result<AuthResponse> {
-        let user = self.repo.find_by_email(&input.email).await?
+        let user = self
+            .repo
+            .find_by_email(&input.email)
+            .await?
             .ok_or(AppError::InvalidCredentials)?;
 
         // Verify password
         PasswordService::verify_password(&input.password, &user.password_hash)?;
 
-        let token = self.jwt_service.generate_token(&user.id, &user.email, &user.role)?;
+        let token = self
+            .jwt_service
+            .generate_token(&user.id, &user.email, &user.role)?;
 
         Ok(AuthResponse {
             token,
@@ -66,11 +75,13 @@ impl AuthUsecase {
     }
 
     pub async fn get_user_by_id(&self, id: &str) -> Result<User> {
-         self.repo.find_by_id(id).await?
+        self.repo
+            .find_by_id(id)
+            .await?
             .ok_or(AppError::NotFound("User not found".to_string()))
     }
 
-     pub fn verify_token(&self, token: &str) -> Result<crate::infrastructure::auth::jwt::Claims> {
+    pub fn verify_token(&self, token: &str) -> Result<crate::infrastructure::auth::jwt::Claims> {
         self.jwt_service.verify_token(token)
     }
 }

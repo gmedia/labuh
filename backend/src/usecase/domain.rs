@@ -78,19 +78,19 @@ impl DomainUsecase {
 
         // 1. Provision DNS record if needed
         let dns_record_id = if !matches!(request.provider, DomainProvider::Custom) {
-            let (record_type, content) = if let (Some(t), Some(c)) = (
-                &request.dns_record_type,
-                &request.dns_record_content,
-            ) {
+            let (record_type, content) = if let (Some(t), Some(c)) =
+                (&request.dns_record_type, &request.dns_record_content)
+            {
                 (t.clone(), c.clone())
             } else {
                 match request.domain_type {
                     DomainType::Caddy => {
-                        let ip = std::env::var("LABUH_PUBLIC_IP").unwrap_or_else(|_| "127.0.0.1".to_string());
-                         ("A".to_string(), ip)
+                        let ip = std::env::var("LABUH_PUBLIC_IP")
+                            .unwrap_or_else(|_| "127.0.0.1".to_string());
+                        ("A".to_string(), ip)
                     }
                     DomainType::Tunnel => {
-                         let target = format!(
+                        let target = format!(
                             "{}.cfargotunnel.com",
                             request.tunnel_id.as_deref().unwrap_or("unknown")
                         );
@@ -175,7 +175,9 @@ impl DomainUsecase {
                     .get_provider(&stack.team_id, domain_record.provider.clone())
                     .await
                 {
-                    let _ = provider_impl.delete_record(&domain_record.domain, record_id).await;
+                    let _ = provider_impl
+                        .delete_record(&domain_record.domain, record_id)
+                        .await;
                 }
             }
         }
@@ -202,7 +204,9 @@ impl DomainUsecase {
                 .get_provider(&stack.team_id, domain_record.provider.clone())
                 .await
             {
-                let _ = provider_impl.delete_record(&domain_record.domain, record_id).await;
+                let _ = provider_impl
+                    .delete_record(&domain_record.domain, record_id)
+                    .await;
             }
         }
 

@@ -16,7 +16,6 @@ impl SqliteDomainRepository {
 
 #[async_trait]
 impl DomainRepository for SqliteDomainRepository {
-
     async fn find_by_stack_id(&self, stack_id: &str) -> Result<Vec<Domain>> {
         let domains = sqlx::query_as::<_, Domain>(
             "SELECT * FROM domains WHERE stack_id = ? ORDER BY created_at DESC",
@@ -93,5 +92,4 @@ impl DomainRepository for SqliteDomainRepository {
             .await?;
         Ok(())
     }
-
 }

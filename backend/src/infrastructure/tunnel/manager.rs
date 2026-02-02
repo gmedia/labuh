@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use crate::domain::runtime::{ContainerConfig, RuntimePort};
 use crate::error::Result;
-use crate::domain::runtime::{RuntimePort, ContainerConfig};
+use std::sync::Arc;
 
 const LABUH_NETWORK: &str = "labuh-network";
 const TUNNEL_CONTAINER_NAME: &str = "labuh-tunnel";
@@ -25,10 +25,16 @@ impl TunnelManager {
 
         if let Some(container) = existing {
             if container.state == "running" {
-                tracing::debug!("Tunnel container {} is already running", TUNNEL_CONTAINER_NAME);
+                tracing::debug!(
+                    "Tunnel container {} is already running",
+                    TUNNEL_CONTAINER_NAME
+                );
                 return Ok(());
             } else {
-                tracing::info!("Starting existing tunnel container {}", TUNNEL_CONTAINER_NAME);
+                tracing::info!(
+                    "Starting existing tunnel container {}",
+                    TUNNEL_CONTAINER_NAME
+                );
                 return self.runtime.start_container(&container.id).await;
             }
         }
@@ -44,7 +50,9 @@ impl TunnelManager {
         let labels = vec![
             ("labuh.managed".to_string(), "true".to_string()),
             ("labuh.service".to_string(), "tunnel".to_string()),
-        ].into_iter().collect();
+        ]
+        .into_iter()
+        .collect();
 
         let config = ContainerConfig {
             name: TUNNEL_CONTAINER_NAME.to_string(),
@@ -75,5 +83,4 @@ impl TunnelManager {
 
         Ok(())
     }
-
 }

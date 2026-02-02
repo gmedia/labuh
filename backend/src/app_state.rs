@@ -2,6 +2,10 @@ use sqlx::SqlitePool;
 use std::sync::Arc;
 
 use crate::config::Config;
+use crate::domain::runtime::RuntimePort;
+use crate::infrastructure::caddy::client::CaddyClient;
+use crate::infrastructure::tunnel::manager::TunnelManager;
+use crate::usecase::auth::AuthUsecase;
 use crate::usecase::deployment_log::DeploymentLogUsecase;
 use crate::usecase::environment::EnvironmentUsecase;
 use crate::usecase::registry::RegistryUsecase;
@@ -10,10 +14,6 @@ use crate::usecase::stack::StackUsecase;
 use crate::usecase::system::SystemUsecase;
 use crate::usecase::team::TeamUsecase;
 use crate::usecase::template::TemplateUsecase;
-use crate::usecase::auth::AuthUsecase;
-use crate::infrastructure::caddy::client::CaddyClient;
-use crate::infrastructure::tunnel::manager::TunnelManager;
-use crate::domain::runtime::RuntimePort;
 
 /// Central application state (Dependency Injection Container)
 pub struct AppState {
@@ -46,9 +46,8 @@ impl AppState {
         // 1. Initialize Infrastructure
 
         // Runtime (Docker)
-        let runtime: Arc<dyn RuntimePort> = Arc::new(
-             crate::infrastructure::docker::runtime::DockerRuntimeAdapter::new().await?
-        );
+        let runtime: Arc<dyn RuntimePort> =
+            Arc::new(crate::infrastructure::docker::runtime::DockerRuntimeAdapter::new().await?);
 
         // Caddy
         let caddy_client = Arc::new(CaddyClient::new(config.caddy_admin_api.clone()));
@@ -60,12 +59,14 @@ impl AppState {
         ));
 
         // User Repo
-        let user_repo = Arc::new(crate::infrastructure::sqlite::user::SqliteUserRepository::new(pool.clone()));
+        let user_repo =
+            Arc::new(crate::infrastructure::sqlite::user::SqliteUserRepository::new(pool.clone()));
 
         // 2. Initialize Core Usecases
         let auth_usecase = Arc::new(AuthUsecase::new(user_repo, jwt_service));
 
-        let system_provider =  Arc::new(crate::infrastructure::linux_system::LinuxSystemProvider::new());
+        let system_provider =
+            Arc::new(crate::infrastructure::linux_system::LinuxSystemProvider::new());
         let system_usecase = Arc::new(crate::usecase::system::SystemUsecase::new(system_provider));
 
         let mut app_state = Self {
@@ -99,15 +100,16 @@ impl AppState {
 
         // Environment
         let env_repo = Arc::new(
-            crate::infrastructure::sqlite::environment::SqliteEnvironmentRepository::new(pool.clone()),
+            crate::infrastructure::sqlite::environment::SqliteEnvironmentRepository::new(
+                pool.clone(),
+            ),
         );
         let env_uc = Arc::new(EnvironmentUsecase::new(env_repo));
         self.env_usecase = Some(env_uc.clone());
 
         // Team
-        let team_repo = Arc::new(
-            crate::infrastructure::sqlite::team::SqliteTeamRepository::new(pool.clone())
-        );
+        let team_repo =
+            Arc::new(crate::infrastructure::sqlite::team::SqliteTeamRepository::new(pool.clone()));
         let team_uc = Arc::new(TeamUsecase::new(team_repo.clone()));
         self.team_usecase = Some(team_uc.clone());
 
@@ -180,7 +182,9 @@ impl AppState {
 
         // Logs
         let log_repo = Arc::new(
-            crate::infrastructure::sqlite::deployment_log::SqliteDeploymentLogRepository::new(pool.clone()),
+            crate::infrastructure::sqlite::deployment_log::SqliteDeploymentLogRepository::new(
+                pool.clone(),
+            ),
         );
         self.log_usecase = Some(Arc::new(DeploymentLogUsecase::new(log_repo)));
 
@@ -211,7 +215,7 @@ impl AppState {
         // Prepare Infrastructure (Caddy, Networks)
         // Ensure labuh-network
         if let Err(e) = runtime.ensure_network("labuh-network").await {
-             tracing::error!("Failed to create labuh-network: {}", e);
+            tracing::error!("Failed to create labuh-network: {}", e);
         }
 
         // Bootstrap Caddy
@@ -220,7 +224,10 @@ impl AppState {
         }
 
         // Connect Caddy to network
-        if let Err(e) = runtime.connect_network("labuh-caddy", "labuh-network").await {
+        if let Err(e) = runtime
+            .connect_network("labuh-caddy", "labuh-network")
+            .await
+        {
             tracing::warn!("Could not connect Caddy to labuh-network: {}", e);
         }
 
