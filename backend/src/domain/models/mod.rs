@@ -1,4 +1,5 @@
 pub mod deployment_log;
+pub mod dns;
 pub mod domain;
 pub mod environment;
 pub mod registry;
@@ -10,7 +11,8 @@ pub mod template;
 pub mod user;
 
 pub use deployment_log::{DeploymentLog, DeploymentLogResponse};
-pub use domain::{CreateDomain, Domain, DomainResponse};
+// dns re-exports removed
+pub use domain::{CreateDomain, Domain, DomainProvider, DomainResponse, DomainType};
 pub use environment::{BulkSetEnvVarRequest, SetEnvVarRequest, StackEnvVar, StackEnvVarResponse};
 pub use registry::{CreateRegistryCredential, RegistryCredential, RegistryCredentialResponse};
 pub use resource::{ContainerResource, ResourceMetric};

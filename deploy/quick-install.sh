@@ -82,7 +82,7 @@ detect_os() {
         fedora)
             DOCKER_OS="fedora"
             ;;
-        centos|rhel)
+        centos|rhel|rocky)
             DOCKER_OS="centos"
             ;;
         *)
@@ -124,7 +124,7 @@ install_dependencies() {
             apt-get update
             apt-get install -y openssl curl ca-certificates tar gzip gnupg2 lsb-release
             ;;
-        fedora|rhel|centos)
+        fedora|rhel|centos|rocky)
             dnf install -y openssl curl ca-certificates tar gzip gnupg2
             ;;
         *)
@@ -166,7 +166,7 @@ install_docker() {
             apt-get update
             apt-get install -y docker-ce docker-ce-cli containerd.io
             ;;
-        fedora|rhel|centos)
+        fedora|rhel|centos|rocky)
             dnf -y install dnf-plugins-core
             dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
             dnf install -y docker-ce docker-ce-cli containerd.io

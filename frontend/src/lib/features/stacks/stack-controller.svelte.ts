@@ -30,7 +30,6 @@ export class StackController {
   actionLoading = $state(false);
   savingCompose = $state(false);
   savingAutomation = $state(false);
-  addingDomain = $state(false);
   savingResources = $state<Set<string>>(new Set());
 
   // UI States
@@ -327,17 +326,6 @@ export class StackController {
     } finally {
       this.actionLoading = false;
     }
-  }
-
-  async addDomain(payload: {
-    domain: string;
-    container_name: string;
-    container_port: number;
-  }) {
-    this.addingDomain = true;
-    await api.stacks.domains.add(this.id, payload);
-    await this.loadDomains();
-    this.addingDomain = false;
   }
 
   async removeDomain(domain: string) {

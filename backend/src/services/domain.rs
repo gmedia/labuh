@@ -5,18 +5,28 @@ use sqlx::SqlitePool;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::domain::models::Domain;
+use crate::domain::models::{Domain, DomainProvider, DomainType};
 use crate::error::{AppError, Result};
+use crate::services::dns_provider::DnsProviderService;
 use crate::services::CaddyService;
 
 pub struct DomainService {
     db: SqlitePool,
     caddy_service: Arc<CaddyService>,
+    dns_service: Arc<DnsProviderService>,
 }
 
 impl DomainService {
-    pub fn new(db: SqlitePool, caddy_service: Arc<CaddyService>) -> Self {
-        Self { db, caddy_service }
+    pub fn new(
+        db: SqlitePool,
+        caddy_service: Arc<CaddyService>,
+        dns_service: Arc<DnsProviderService>,
+    ) -> Self {
+        Self {
+            db,
+            caddy_service,
+            dns_service,
+        }
     }
 
     /// List all domains for a stack
@@ -38,6 +48,9 @@ impl DomainService {
         domain: &str,
         container_name: &str,
         container_port: i32,
+        provider: DomainProvider,
+        domain_type: DomainType,
+        tunnel_id: Option<String>,
     ) -> Result<Domain> {
         // Check if domain already exists
         let existing = sqlx::query_as::<_, Domain>("SELECT * FROM domains WHERE domain = ?")
@@ -52,6 +65,30 @@ impl DomainService {
             )));
         }
 
+        // 1. Provision DNS record if needed
+        let dns_record_id = if !matches!(provider, DomainProvider::Custom) {
+            // We need a target for DNS. For Caddy, it's the public IP.
+            // For Tunnel, it's the CNAME to the tunnel.
+            let target = match domain_type {
+                DomainType::Caddy => std::env::var("LABUH_PUBLIC_IP").unwrap_or_else(|_| "127.0.0.1".to_string()),
+                DomainType::Tunnel => {
+                    // Placeholder for tunnel target. Usually <tunnel-id>.cfargotunnel.com
+                    format!("{}.cfargotunnel.com", tunnel_id.as_deref().unwrap_or("unknown"))
+                }
+            };
+
+            // Get team_id from stack
+            let stack = sqlx::query!("SELECT team_id FROM stacks WHERE id = ?", stack_id)
+                .fetch_one(&self.db)
+                .await?;
+
+            self.dns_service
+                .provision_record(&stack.team_id, provider.clone(), domain, &target)
+                .await?
+        } else {
+            None
+        };
+
         // Create domain record
         let id = Uuid::new_v4().to_string();
         let now = Utc::now().to_rfc3339();
@@ -59,8 +96,8 @@ impl DomainService {
         // Build the upstream address (container_name:port)
         let container_upstream = format!("{}:{}", container_name, container_port);
 
-        sqlx::query(
-            "INSERT INTO domains (id, stack_id, container_name, container_port, domain, ssl_enabled, verified, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        if let Err(e) = sqlx::query(
+            "INSERT INTO domains (id, stack_id, container_name, container_port, domain, ssl_enabled, verified, provider, type, tunnel_id, dns_record_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )
         .bind(&id)
         .bind(stack_id)
@@ -69,22 +106,37 @@ impl DomainService {
         .bind(domain)
         .bind(true)
         .bind(false)
+        .bind(&provider)
+        .bind(&domain_type)
+        .bind(&tunnel_id)
+        .bind(&dns_record_id)
         .bind(&now)
         .execute(&self.db)
-        .await?;
+        .await {
+            // Cleanup DNS if DB insert fails
+            if let (Some(rec_id), Some(team_id)) = (dns_record_id, self.get_team_id_by_stack(stack_id).await.ok()) {
+                let _ = self.dns_service.deprovision_record(&team_id, provider, &rec_id).await;
+            }
+            return Err(e.into());
+        }
 
-        // Add route to Caddy
-        if let Err(e) = self
-            .caddy_service
-            .add_route(domain, &container_upstream)
-            .await
-        {
-            // Rollback domain creation
-            sqlx::query("DELETE FROM domains WHERE id = ?")
-                .bind(&id)
-                .execute(&self.db)
-                .await?;
-            return Err(e);
+        // Add route to Caddy if it's a Caddy type domain
+        if matches!(domain_type, DomainType::Caddy) {
+            if let Err(e) = self
+                .caddy_service
+                .add_route(domain, &container_upstream)
+                .await
+            {
+                // Rollback DNS and DB
+                if let (Some(rec_id), Some(team_id)) = (dns_record_id, self.get_team_id_by_stack(stack_id).await.ok()) {
+                    let _ = self.dns_service.deprovision_record(&team_id, provider, &rec_id).await;
+                }
+                sqlx::query("DELETE FROM domains WHERE id = ?")
+                    .bind(&id)
+                    .execute(&self.db)
+                    .await?;
+                return Err(e);
+            }
         }
 
         // Return created domain
@@ -94,6 +146,13 @@ impl DomainService {
             .await?;
 
         Ok(domain_record)
+    }
+
+    async fn get_team_id_by_stack(&self, stack_id: &str) -> Result<String> {
+        let row = sqlx::query!("SELECT team_id FROM stacks WHERE id = ?", stack_id)
+            .fetch_one(&self.db)
+            .await?;
+        Ok(row.team_id)
     }
 
     /// Remove a domain
@@ -107,8 +166,18 @@ impl DomainService {
                 .await?
                 .ok_or_else(|| AppError::NotFound("Domain not found".to_string()))?;
 
+        // 1. Deprovision DNS if needed
+        if let Some(record_id) = domain_record.dns_record_id {
+            let team_id = self.get_team_id_by_stack(stack_id).await?;
+            let _ = self.dns_service
+                .deprovision_record(&team_id, domain_record.provider, &record_id)
+                .await;
+        }
+
         // Remove from Caddy (ignore errors if route doesn't exist)
-        let _ = self.caddy_service.remove_route(&domain_record.domain).await;
+        if matches!(domain_record.r#type, DomainType::Caddy) {
+            let _ = self.caddy_service.remove_route(&domain_record.domain).await;
+        }
 
         // Delete from database
         sqlx::query("DELETE FROM domains WHERE id = ?")
@@ -172,11 +241,11 @@ impl DomainService {
     }
     /// Sync all domains from database to Caddy
     pub async fn sync_all_routes(&self) -> Result<()> {
-        let domains = sqlx::query_as::<_, Domain>("SELECT * FROM domains")
+        let domains = sqlx::query_as::<_, Domain>("SELECT * FROM domains WHERE type = 'Caddy'")
             .fetch_all(&self.db)
             .await?;
 
-        tracing::info!("Syncing {} domains to Caddy...", domains.len());
+        tracing::info!("Syncing {} Caddy domains to Caddy...", domains.len());
 
         for domain in domains {
             let container_upstream = format!("{}:{}", domain.container_name, domain.container_port);

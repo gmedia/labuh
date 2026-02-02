@@ -199,6 +199,18 @@ export interface CreateStackFromGit {
   compose_path: string;
 }
 
+export type DomainProvider = "Custom" | "Cloudflare" | "CPanel";
+export type DomainType = "Caddy" | "Tunnel";
+
+export interface RemoteDnsRecord {
+  id: string;
+  name: string;
+  content: string;
+  type: string;
+  zone_id: string;
+  zone_name: string;
+}
+
 export interface Domain {
   id: string;
   stack_id: string;
@@ -207,6 +219,10 @@ export interface Domain {
   domain: string;
   ssl_enabled: boolean;
   verified: boolean;
+  provider: DomainProvider;
+  type: DomainType;
+  tunnel_id?: string;
+  dns_record_id?: string;
   created_at: string;
 }
 
@@ -214,6 +230,18 @@ export interface CreateDomain {
   domain: string;
   container_name: string;
   container_port?: number;
+  provider?: DomainProvider;
+  type?: DomainType;
+  tunnel_id?: string;
+}
+
+export interface DnsConfig {
+  id: string;
+  team_id: string;
+  provider: string;
+  config: any;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface RegistryCredential {
@@ -585,6 +613,10 @@ export const api = {
           method: "POST",
         });
       },
+
+      listAll: async (teamId: string) => {
+        return fetchApi<Domain[]>(`/stacks/domains?team_id=${teamId}`);
+      },
     },
 
     // Stack health overview
@@ -755,6 +787,38 @@ export const api = {
       return fetchApi<void>(`/templates/${id}`, {
         method: "DELETE",
       });
+    },
+  },
+
+  dns: {
+    listConfigs: async (teamId: string) => {
+      return fetchApi<DnsConfig[]>(`/teams/${teamId}/dns-configs`);
+    },
+
+    saveConfig: async (teamId: string, provider: string, config: any) => {
+      return fetchApi<DnsConfig>(`/teams/${teamId}/dns-configs`, {
+        method: "POST",
+        body: JSON.stringify({ provider, config }),
+      });
+    },
+
+    deleteConfig: async (teamId: string, provider: string) => {
+      return fetchApi<{ status: string }>(
+        `/teams/${teamId}/dns-configs/${provider}`,
+        {
+          method: "DELETE",
+        },
+      );
+    },
+    listAvailableDomains: async (teamId: string, provider: string) => {
+      return fetchApi<string[]>(
+        `/teams/${teamId}/dns-configs/${provider}/available-domains`,
+      );
+    },
+    listRemoteRecords: async (teamId: string, provider: string) => {
+      return fetchApi<RemoteDnsRecord[]>(
+        `/teams/${teamId}/dns-configs/${provider}/remote-records`,
+      );
     },
   },
 };

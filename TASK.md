@@ -197,6 +197,23 @@
   - [ ] Multi-node Overlay networks
   - [ ] Service Mesh / Ingress integration
 
+### Phase 21: Advanced Domain Management (Planned)
+
+- [ ] **Dedicated Domain Dashboard**
+  - [ ] Centralized view for all domains across all stacks
+  - [ ] Domain health monitoring (SSL status, DNS resolution check)
+- [ ] **Multi-Provider DNS Integration**
+  - [ ] Cloudflare API integration (Manage DNS records directly from Labuh)
+  - [ ] cPanel API support for automated staging/production entry
+- [ ] **Cloudflare Tunnel (Zero Trust) Support**
+  - [ ] Automated `cloudflared` tunnel setup and management
+  - [ ] Deploy shared `labuh-tunnel` container on `labuh-network`
+  - [ ] Link tunnels to internal project services by routing to container names (zero host ports)
+  - [ ] Dynamic tunnel configuration via Cloudflare API
+
+  > [!NOTE]
+  > **Ingress Architecture**: Domains via DNS/cPanel will route through **Caddy** (Public IP 80/443), while Tunnel-based domains will route directly via the **cloudflared** container to app containers (Private/No Host Ports).
+
 ---
 
 ## 🏗️ Architecture Migration ✅

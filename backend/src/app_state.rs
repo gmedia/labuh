@@ -2,7 +2,7 @@ use sqlx::SqlitePool;
 use std::sync::Arc;
 
 use crate::config::Config;
-use crate::services::{AuthService, CaddyService, ContainerService, DomainService, NetworkService};
+use crate::services::{AuthService, CaddyService, ContainerService, NetworkService};
 use crate::usecase::deployment_log::DeploymentLogUsecase;
 use crate::usecase::environment::EnvironmentUsecase;
 use crate::usecase::registry::RegistryUsecase;
@@ -19,10 +19,10 @@ pub struct AppState {
     pub auth_service: Arc<AuthService>,
     pub container_service: Option<Arc<ContainerService>>,
     pub _caddy_service: Arc<CaddyService>,
-    pub domain_service: Arc<DomainService>,
+    pub tunnel_service: Option<Arc<crate::services::tunnel::TunnelService>>,
     pub system_usecase: Arc<SystemUsecase>,
 
-    // Optional/Conditional Usecases (if container service is available)
+    // Optional/Conditional Usecases
     pub env_usecase: Option<Arc<EnvironmentUsecase>>,
     pub registry_usecase: Option<Arc<RegistryUsecase>>,
     pub stack_usecase: Option<Arc<StackUsecase>>,
@@ -30,12 +30,14 @@ pub struct AppState {
     pub template_usecase: Option<Arc<TemplateUsecase>>,
     pub resource_usecase: Option<Arc<ResourceUsecase>>,
     pub log_usecase: Option<Arc<DeploymentLogUsecase>>,
+    pub domain_usecase: Option<Arc<crate::usecase::domain::DomainUsecase>>,
+    pub dns_usecase: Option<Arc<crate::usecase::dns::DnsUsecase>>,
 }
 
 impl AppState {
     pub async fn new(config: Config, pool: SqlitePool) -> anyhow::Result<Self> {
         // 1. Core Services
-        let (auth_service, container_service, caddy_service, domain_service, system_usecase) =
+        let (auth_service, container_service, caddy_service, system_usecase) =
             Self::init_core_services(&config, &pool).await;
 
         // 2. Initialize Infrastructure & Usecases
@@ -45,7 +47,7 @@ impl AppState {
             auth_service,
             container_service,
             _caddy_service: caddy_service,
-            domain_service,
+            tunnel_service: None,
             system_usecase,
             env_usecase: None,
             registry_usecase: None,
@@ -54,11 +56,13 @@ impl AppState {
             template_usecase: None,
             resource_usecase: None,
             log_usecase: None,
+            domain_usecase: None,
+            dns_usecase: None,
         };
 
-        if let Some(ref container_svc) = app_state.container_service {
-            app_state.init_infrastructure(container_svc).await?;
+        if let Some(container_svc) = app_state.container_service.clone() {
             app_state.init_usecases().await?;
+            app_state.init_infrastructure(&container_svc).await?;
         }
 
         Ok(app_state)
@@ -72,7 +76,6 @@ impl AppState {
         Arc<AuthService>,
         Option<Arc<ContainerService>>,
         Arc<CaddyService>,
-        Arc<DomainService>,
         Arc<SystemUsecase>,
     ) {
         let auth_service = Arc::new(AuthService::new(
@@ -96,7 +99,6 @@ impl AppState {
         };
 
         let caddy_service = Arc::new(CaddyService::new(config.caddy_admin_api.clone()));
-        let domain_service = Arc::new(DomainService::new(pool.clone(), caddy_service.clone()));
 
         let system_provider =
             Arc::new(crate::infrastructure::linux_system::LinuxSystemProvider::new());
@@ -106,20 +108,24 @@ impl AppState {
             auth_service,
             container_service,
             caddy_service,
-            domain_service,
             system_usecase,
         )
     }
 
-    /// Bootstrap Infrastructure (Network, Caddy, Domains)
+    /// Bootstrap Infrastructure (Network, Caddy, Domains, Tunnels)
     async fn init_infrastructure(
-        &self,
+        &mut self,
         container_svc: &Arc<ContainerService>,
     ) -> anyhow::Result<()> {
-        let network_service = NetworkService::new(container_svc.clone());
+        let network_service = Arc::new(NetworkService::new(container_svc.clone()));
         if let Err(e) = network_service.ensure_labuh_network().await {
             tracing::error!("Failed to create labuh-network: {}", e);
         }
+
+        self.tunnel_service = Some(Arc::new(crate::services::tunnel::TunnelService::new(
+            container_svc.clone(),
+            network_service.clone(),
+        )));
 
         if let Err(e) = self._caddy_service.bootstrap(container_svc).await {
             tracing::error!("Failed to bootstrap Caddy: {}", e);
@@ -129,8 +135,10 @@ impl AppState {
             tracing::warn!("Could not connect Caddy to labuh-network: {}", e);
         }
 
-        if let Err(e) = self.domain_service.sync_all_routes().await {
-            tracing::error!("Failed to sync domains to Caddy: {}", e);
+        if let Some(ref domain_uc) = self.domain_usecase {
+            if let Err(e) = domain_uc.sync_all_routes().await {
+                tracing::error!("Failed to sync domains to Caddy: {}", e);
+            }
         }
 
         Ok(())
@@ -225,6 +233,25 @@ impl AppState {
             ),
         );
         self.log_usecase = Some(Arc::new(DeploymentLogUsecase::new(log_repo)));
+
+        let domain_repo = Arc::new(
+            crate::infrastructure::sqlite::domain::SqliteDomainRepository::new(pool.clone()),
+        );
+        let dns_config_repo = Arc::new(
+            crate::infrastructure::sqlite::dns::SqliteDnsConfigRepository::new(pool.clone()),
+        );
+
+        let dns_uc = Arc::new(crate::usecase::dns::DnsUsecase::new(dns_config_repo));
+        self.dns_usecase = Some(dns_uc.clone());
+
+        let caddy_svc = self._caddy_service.clone();
+        let domain_uc = Arc::new(crate::usecase::domain::DomainUsecase::new(
+            domain_repo,
+            stack_repo,
+            caddy_svc,
+            dns_uc,
+        ));
+        self.domain_usecase = Some(domain_uc);
 
         Ok(())
     }

@@ -18,7 +18,8 @@
 		Moon,
 		Ship,
 		Terminal,
-		Users
+		Users,
+		Globe
 	} from '@lucide/svelte';
 
 	let { children } = $props();
@@ -28,6 +29,7 @@
 		{ href: '/dashboard/containers', label: 'Containers', icon: Container },
 		{ href: '/dashboard/images', label: 'Images', icon: Image },
 		{ href: '/dashboard/stacks', label: 'Stacks', icon: Layers },
+		{ href: '/dashboard/domains', label: 'Domains', icon: Globe },
 		{ href: '/dashboard/logs', label: 'Logs', icon: Terminal },
 		{ href: '/dashboard/templates', label: 'Templates', icon: LayoutGrid },
 		{ href: '/dashboard/teams', label: 'Teams', icon: Users },

@@ -83,6 +83,8 @@ fn create_protected_routes(state: Arc<AppState>) -> Router {
         Some(template_uc),
         Some(resource_uc),
         Some(log_uc),
+        Some(_domain_uc),
+        Some(_dns_uc),
     ) = (
         &state.stack_usecase,
         &state.team_usecase,
@@ -91,6 +93,8 @@ fn create_protected_routes(state: Arc<AppState>) -> Router {
         &state.template_usecase,
         &state.resource_usecase,
         &state.log_usecase,
+        &state.domain_usecase,
+        &state.dns_usecase,
     ) {
         routes = routes
             .nest("/teams", team_routes(team_uc.clone()))
@@ -104,10 +108,7 @@ fn create_protected_routes(state: Arc<AppState>) -> Router {
                 ),
             )
             .nest("/stacks", stack_routes(stack_uc.clone()))
-            .nest(
-                "/stacks",
-                domain_routes(state.domain_service.clone(), stack_uc.clone()),
-            )
+            .nest("/stacks", domain_routes(state.clone()))
             .nest(
                 "/stacks",
                 deployment_log_routes(log_uc.clone(), stack_uc.clone()),
@@ -117,7 +118,8 @@ fn create_protected_routes(state: Arc<AppState>) -> Router {
                 "/stacks",
                 environment_routes(env_uc.clone(), stack_uc.clone()),
             )
-            .nest("/templates", template_routes(template_uc.clone()));
+            .nest("/templates", template_routes(template_uc.clone()))
+            .merge(dns_routes(state.clone()));
     }
 
     routes.layer(axum_middleware::from_fn_with_state(
