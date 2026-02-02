@@ -17,6 +17,12 @@ pub struct ListDomainsQuery {
     pub team_id: String,
 }
 
+#[derive(Deserialize)]
+pub struct UpdateDnsRequest {
+    pub record_type: String,
+    pub content: String,
+}
+
 async fn list_all_domains(
     State(state): State<Arc<AppState>>,
     Extension(current_user): Extension<CurrentUser>,
@@ -125,6 +131,32 @@ async fn verify_domain(
     Ok(Json(result))
 }
 
+async fn update_dns(
+    State(state): State<Arc<AppState>>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path((stack_id, domain)): Path<(String, String)>,
+    Json(request): Json<UpdateDnsRequest>,
+) -> Result<Json<serde_json::Value>> {
+    let stack_uc = state.stack_usecase.as_ref().ok_or(AppError::Internal(
+        "Stack usecase not available".to_string(),
+    ))?;
+    let domain_uc = state.domain_usecase.as_ref().ok_or(AppError::Internal(
+        "Domain usecase not available".to_string(),
+    ))?;
+
+    stack_uc.get_stack(&stack_id, &current_user.id).await?;
+    domain_uc
+        .update_domain_dns(
+            &stack_id,
+            &domain,
+            &request.record_type,
+            &request.content,
+        )
+        .await?;
+
+    Ok(Json(serde_json::json!({ "status": "updated" })))
+}
+
 pub fn domain_routes(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/domains", get(list_all_domains))
@@ -132,5 +164,6 @@ pub fn domain_routes(state: Arc<AppState>) -> Router {
         .route("/{stack_id}/domains", post(add_domain))
         .route("/{stack_id}/domains/{domain}", delete(remove_domain))
         .route("/{stack_id}/domains/{domain}/verify", post(verify_domain))
+        .route("/{stack_id}/domains/{domain}/dns", axum::routing::put(update_dns))
         .with_state(state)
 }

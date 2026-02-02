@@ -18,4 +18,7 @@ pub trait DnsProvider: Send + Sync {
 
     /// Fetch all DNS records from the provider
     async fn list_records(&self) -> Result<Vec<RemoteDnsRecord>>;
+
+    /// Update an existing DNS record
+    async fn update_record(&self, domain: &str, record_id: &str, record_type: &str, content: &str) -> Result<()>;
 }

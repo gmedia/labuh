@@ -8,6 +8,7 @@
 	import { DomainController } from '$lib/features/domains/domain-controller.svelte';
 	import DnsConfigDialog from '$lib/features/domains/components/DnsConfigDialog.svelte';
 	import RegisterDomainDialog from '$lib/features/domains/components/RegisterDomainDialog.svelte';
+	import EditDnsDialog from '$lib/features/domains/components/EditDnsDialog.svelte';
 	import DiscoveredRecords from '$lib/features/domains/components/DiscoveredRecords.svelte';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { formatDistanceToNow } from 'date-fns';
@@ -218,12 +219,24 @@
                                 <div class="hidden md:block text-xs text-muted-foreground">
                                     {domain.created_at ? formatDistanceToNow(new Date(domain.created_at), { addSuffix: true }) : '-'}
                                 </div>
-                                <div class="text-right pr-2">
+                                <div class="text-right pr-2 flex items-center justify-end gap-1">
+                                    {#if domain.provider !== 'Custom'}
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            class="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                            onclick={() => ctrl.openEditDns(domain)}
+                                            title="Edit DNS"
+                                        >
+                                            <Settings2 class="h-4 w-4" />
+                                        </Button>
+                                    {/if}
                                     <Button
                                         variant="ghost"
                                         size="icon"
                                         class="text-destructive h-8 w-8 hover:bg-destructive/10"
                                         onclick={() => ctrl.removeDomain(domain.stack_id, domain.domain)}
+                                        title="Delete Domain"
                                     >
                                         <Trash2 class="h-4 w-4" />
                                     </Button>
@@ -243,3 +256,4 @@
 
 <DnsConfigDialog {ctrl} />
 <RegisterDomainDialog {ctrl} />
+<EditDnsDialog {ctrl} />

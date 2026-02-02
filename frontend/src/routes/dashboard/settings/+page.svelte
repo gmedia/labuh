@@ -5,6 +5,7 @@
 	import ProfileSettings from '$lib/features/settings/components/ProfileSettings.svelte';
 	import AppearanceSettings from '$lib/features/settings/components/AppearanceSettings.svelte';
 	import RegistrySettings from '$lib/features/settings/components/RegistrySettings.svelte';
+	import TeamSettings from '$lib/features/settings/components/TeamSettings.svelte';
 
 	let ctrl = $state(new SettingsController());
 
@@ -29,5 +30,6 @@
 		<ProfileSettings bind:ctrl />
 		<AppearanceSettings />
 		<RegistrySettings bind:ctrl />
+		<TeamSettings />
 	</div>
 </div>

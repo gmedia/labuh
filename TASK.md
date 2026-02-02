@@ -197,35 +197,22 @@
   - [ ] Multi-node Overlay networks
   - [ ] Service Mesh / Ingress integration
 
-### Phase 21: Advanced Domain Management (Planned)
+### Phase 21: Advanced Domain Management ✅
 
-- [ ] **Dedicated Domain Dashboard**
-  - [ ] Centralized view for all domains across all stacks
-  - [ ] Domain health monitoring (SSL status, DNS resolution check)
-- [ ] **Multi-Provider DNS Integration**
-  - [ ] Cloudflare API integration (Manage DNS records directly from Labuh)
-  - [ ] cPanel API support for automated staging/production entry
-- [ ] **Cloudflare Tunnel (Zero Trust) Support**
-  - [ ] Automated `cloudflared` tunnel setup and management
-  - [ ] Deploy shared `labuh-tunnel` container on `labuh-network`
-  - [ ] Link tunnels to internal project services by routing to container names (zero host ports)
-  - [ ] Dynamic tunnel configuration via Cloudflare API
+- [x] **Dedicated Domain Dashboard**
+  - [x] Centralized view for all domains across all stacks
+  - [x] Domain health monitoring (SSL status, DNS resolution check)
+- [x] **Multi-Provider DNS Integration**
+  - [x] Cloudflare API integration (Manage DNS records directly from Labuh)
+  - [x] cPanel API support for automated staging/production entry
+- [x] **Cloudflare Tunnel (Zero Trust) Support**
+  - [x] Automated `cloudflared` tunnel setup and management
+  - [x] Deploy shared `labuh-tunnel` container on `labuh-network`
+  - [x] Link tunnels to internal project services by routing to container names (zero host ports)
+  - [x] Dynamic tunnel configuration via Cloudflare API
 
   > [!NOTE]
   > **Ingress Architecture**: Domains via DNS/cPanel will route through **Caddy** (Public IP 80/443), while Tunnel-based domains will route directly via the **cloudflared** container to app containers (Private/No Host Ports).
-
-### Phase 25: Advanced DNS & Tunnel Flexibility ✅
-
-- [x] **Refactor DNS Provider**
-  - [x] Flexible trait for creating arbitrary record types (A, CNAME, TXT, etc.)
-  - [x] Multi-zone support for Cloudflare (dynamic zone lookup)
-- [x] **Tunnel Manager Enhancements**
-  - [x] Activate tunnel via token during domain registration
-  - [x] Wired into Domain Usecase
-- [x] **Frontend Updates**
-  - [x] Advanced DNS toggle (custom Type/Content)
-  - [x] Tunnel Token input field
-  - [x] Exposure Type toggle (Caddy/Tunnel)
 
 ---
 

@@ -36,4 +36,10 @@ impl DnsProvider for CPanelProvider {
     async fn list_records(&self) -> Result<Vec<RemoteDnsRecord>> {
         Ok(vec![])
     }
+
+    async fn update_record(&self, _domain: &str, _record_id: &str, _record_type: &str, _content: &str) -> Result<()> {
+        Err(AppError::Internal(
+            "cPanel provider not yet implemented".to_string(),
+        ))
+    }
 }

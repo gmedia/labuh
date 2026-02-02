@@ -617,6 +617,21 @@ export const api = {
         });
       },
 
+      updateDns: async (
+        stackId: string,
+        domain: string,
+        recordType: string,
+        content: string,
+      ) => {
+        return fetchApi<{ status: string }>(
+          `/stacks/${stackId}/domains/${encodeURIComponent(domain)}/dns`,
+          {
+            method: "PUT",
+            body: JSON.stringify({ record_type: recordType, content }),
+          },
+        );
+      },
+
       listAll: async (teamId: string) => {
         return fetchApi<Domain[]>(`/stacks/domains?team_id=${teamId}`);
       },
@@ -721,6 +736,12 @@ export const api = {
       return fetchApi<Team>("/teams", {
         method: "POST",
         body: JSON.stringify({ name }),
+      });
+    },
+
+    remove: async (id: string) => {
+      return fetchApi<{ status: string }>(`/teams/${id}`, {
+        method: "DELETE",
       });
     },
 

@@ -71,4 +71,15 @@ export class TemplateController {
       this.adding = false;
     }
   }
+
+  async deleteTemplate(id: string) {
+    if (!confirm("Are you sure you want to delete this template?")) return;
+    const result = await api.templates.delete(id);
+    if (!result.error) {
+      toast.success("Template deleted successfully");
+      await this.loadTemplates();
+    } else {
+      toast.error(result.message || result.error);
+    }
+  }
 }

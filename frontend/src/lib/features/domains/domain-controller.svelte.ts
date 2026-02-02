@@ -42,6 +42,13 @@ export class DomainController {
   dnsRecordType = $state("A");
   dnsRecordContent = $state("");
 
+  // Edit DNS State
+  showEditDnsDialog = $state(false);
+  editingDomain = $state<Domain | null>(null);
+  editDnsType = $state("A");
+  editDnsContent = $state("");
+  updatingDns = $state(false);
+
   async init() {
     await this.loadAll();
   }
@@ -279,6 +286,46 @@ export class DomainController {
       }
     } finally {
       this.loading = false;
+    }
+  }
+
+  openEditDns(domain: Domain) {
+    this.editingDomain = domain;
+    // We don't have the current type/content in the local domain record,
+    // so we'll let the user fill it or we could try to find it in remoteRecords
+    // if they already loaded them. For now, default to A.
+    this.editDnsType = "A";
+    this.editDnsContent = "";
+    this.showEditDnsDialog = true;
+  }
+
+  async updateDns() {
+    if (!this.editingDomain) return;
+    if (!this.editDnsType || !this.editDnsContent) {
+      toast.error("Type and Content are required");
+      return;
+    }
+
+    this.updatingDns = true;
+    try {
+      const res = await api.stacks.domains.updateDns(
+        this.editingDomain.stack_id,
+        this.editingDomain.domain,
+        this.editDnsType,
+        this.editDnsContent,
+      );
+
+      if (!res.error) {
+        toast.success(`DNS record updated for ${this.editingDomain.domain}`);
+        this.showEditDnsDialog = false;
+        await this.loadAll();
+      } else {
+        toast.error(res.error || "Failed to update DNS record");
+      }
+    } catch (err) {
+      toast.error("Network error during DNS update");
+    } finally {
+      this.updatingDns = false;
     }
   }
 }

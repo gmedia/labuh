@@ -136,6 +136,40 @@ impl DnsProvider for CloudflareProvider {
 
         Ok(all_records)
     }
+
+    async fn update_record(&self, domain: &str, record_id: &str, record_type: &str, content: &str) -> Result<()> {
+        let zone_id = self.get_zone_id(domain).await?;
+        let url = format!(
+            "https://api.cloudflare.com/client/v4/zones/{}/dns_records/{}",
+            zone_id, record_id
+        );
+
+        let response = self
+            .client
+            .put(&url)
+            .bearer_auth(&self.api_token)
+            .json(&serde_json::json!({
+                "type": record_type,
+                "name": domain,
+                "content": content,
+                "ttl": 1, // Auto
+                "proxied": false
+            }))
+            .send()
+            .await
+            .map_err(|e| AppError::Internal(format!("Cloudflare API error: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(AppError::Internal(format!(
+                "Cloudflare API error ({}): {}",
+                status, error_text
+            )));
+        }
+
+        Ok(())
+    }
 }
 
 struct CloudflareZone {

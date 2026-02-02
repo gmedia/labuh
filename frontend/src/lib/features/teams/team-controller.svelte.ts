@@ -52,6 +52,34 @@ export class TeamController {
     this.creatingTeam = false;
   }
 
+  async deleteTeam(id: string) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this team? This action cannot be undone and will delete all stacks and resources within the team.",
+      )
+    )
+      return;
+
+    const result = await api.teams.remove(id);
+    if (!result.error) {
+      toast.success("Team deleted successfully");
+      // If the deleted team was active, switch to another one or clear active
+      const current = get(activeTeam);
+      if (current && current.team.id === id) {
+        activeTeam.setActiveTeam(null);
+      }
+      await this.loadTeams();
+      // Reload page to ensure clean state if needed, or let router handle it
+      if (!get(activeTeam) && this.teams.length > 0) {
+        activeTeam.setActiveTeam(this.teams[0]);
+      } else if (this.teams.length === 0) {
+        // No teams left?
+      }
+    } else {
+      toast.error(result.message || result.error || "Failed to delete team");
+    }
+  }
+
   async loadMembers(teamId: string) {
     this.loadingMembers = true;
     const result = await api.teams.listMembers(teamId);

@@ -54,7 +54,7 @@
 	{:else}
 		<div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
 			{#each ctrl.filteredTemplates as template}
-				<TemplateCard {template} />
+				<TemplateCard {template} ondelete={(id) => ctrl.deleteTemplate(id)} />
 			{/each}
 		</div>
 	{/if}

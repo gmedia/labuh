@@ -273,6 +273,43 @@ impl DomainUsecase {
         }
         Ok(())
     }
+
+    pub async fn update_domain_dns(
+        &self,
+        stack_id: &str,
+        domain: &str,
+        record_type: &str,
+        content: &str,
+    ) -> Result<()> {
+        let domain_record = self
+            .domain_repo
+            .find_by_domain(domain)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Domain not found".to_string()))?;
+
+        if domain_record.stack_id != stack_id {
+            return Err(AppError::Forbidden(
+                "You do not have permission to modify this domain".to_string(),
+            ));
+        }
+
+        if let Some(record_id) = &domain_record.dns_record_id {
+            let stack = self.stack_repo.find_by_id_internal(stack_id).await?;
+            let provider_impl = self
+                .dns_usecase
+                .get_provider(&stack.team_id, domain_record.provider.clone())
+                .await?;
+            provider_impl
+                .update_record(domain, record_id, record_type, content)
+                .await?;
+        } else {
+            return Err(AppError::Validation(
+                "Domain does not have a managed DNS record".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

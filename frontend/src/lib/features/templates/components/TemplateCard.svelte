@@ -1,12 +1,15 @@
 <script lang="ts">
   import * as Card from '$lib/components/ui/card';
   import { Button } from '$lib/components/ui/button';
-  import { LayoutGrid, Globe, FileText, Database, Plus } from '@lucide/svelte';
+  import { LayoutGrid, Globe, FileText, Database, Plus, Trash2 } from '@lucide/svelte';
   import { activeTeam } from '$lib/stores';
   import { goto } from '$app/navigation';
   import type { TemplateResponse } from '$lib/api';
 
-  let { template } = $props<{ template: TemplateResponse }>();
+  let { template, ondelete } = $props<{
+    template: TemplateResponse,
+    ondelete?: (id: string) => void
+  }>();
 
   function getIcon(iconName: string) {
     switch (iconName) {
@@ -34,6 +37,16 @@
         <Card.Title>{template.name}</Card.Title>
       </div>
     </div>
+    {#if ondelete}
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-8 w-8 text-muted-foreground hover:text-destructive"
+          onclick={(e) => { e.stopPropagation(); ondelete(template.id); }}
+        >
+          <Trash2 class="h-4 w-4" />
+        </Button>
+    {/if}
   </Card.Header>
   <Card.Content class="flex-1">
     <p class="text-sm text-muted-foreground line-clamp-3">
