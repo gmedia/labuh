@@ -380,8 +380,8 @@ impl DomainUsecase {
                         // or if we want to "force" sync we could check remote records.
                         // Let's at least ensure we have a record ID.
                         if domain.dns_record_id.is_none() {
-                             // Determine record type and content
-                             let (record_type, content) = match domain.r#type {
+                            // Determine record type and content
+                            let (record_type, content) = match domain.r#type {
                                 DomainType::Caddy => {
                                     let ip = std::env::var("LABUH_PUBLIC_IP")
                                         .unwrap_or_else(|_| "127.0.0.1".to_string());
@@ -396,8 +396,19 @@ impl DomainUsecase {
                                 }
                             };
 
-                            if let Ok(new_id) = provider_impl.create_record(&domain.domain, &record_type, &content, domain.proxied).await {
-                                let _ = self.domain_repo.update_dns_record_id(&domain.id, &new_id).await;
+                            if let Ok(new_id) = provider_impl
+                                .create_record(
+                                    &domain.domain,
+                                    &record_type,
+                                    &content,
+                                    domain.proxied,
+                                )
+                                .await
+                            {
+                                let _ = self
+                                    .domain_repo
+                                    .update_dns_record_id(&domain.id, &new_id)
+                                    .await;
                             }
                         }
                     }
@@ -408,9 +419,15 @@ impl DomainUsecase {
             if matches!(domain.r#type, DomainType::Tunnel) {
                 if let Some(tunnel_id) = &domain.tunnel_id {
                     if let Ok(stack) = self.stack_repo.find_by_id_internal(&domain.stack_id).await {
-                        if let Ok(cf) = self.dns_usecase.get_cloudflare_provider(&stack.team_id).await {
-                             if let Some(account_id) = cf.get_account_id() {
-                                if let Ok(mut config) = cf.get_tunnel_configuration(&account_id, tunnel_id).await {
+                        if let Ok(cf) = self
+                            .dns_usecase
+                            .get_cloudflare_provider(&stack.team_id)
+                            .await
+                        {
+                            if let Some(account_id) = cf.get_account_id() {
+                                if let Ok(mut config) =
+                                    cf.get_tunnel_configuration(&account_id, tunnel_id).await
+                                {
                                     if let Some(ingress) = config["ingress"].as_array_mut() {
                                         // Check if domain is in ingress
                                         let exists = ingress.iter().any(|rule| {
@@ -429,11 +446,17 @@ impl DomainUsecase {
                                                 ingress.push(ca);
                                             }
 
-                                            let _ = cf.update_tunnel_configuration(&account_id, tunnel_id, config).await;
+                                            let _ = cf
+                                                .update_tunnel_configuration(
+                                                    &account_id,
+                                                    tunnel_id,
+                                                    config,
+                                                )
+                                                .await;
                                         }
                                     }
                                 }
-                             }
+                            }
                         }
                     }
                 }

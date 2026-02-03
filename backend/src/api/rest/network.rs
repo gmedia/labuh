@@ -64,7 +64,12 @@ async fn get_network_topology(
     for container in containers {
         nodes.push(TopologyNode {
             id: container.id.clone(),
-            label: container.names.first().cloned().unwrap_or_default().replace("/", ""),
+            label: container
+                .names
+                .first()
+                .cloned()
+                .unwrap_or_default()
+                .replace("/", ""),
             r#type: "container".to_string(),
             metadata: serde_json::json!({
                 "image": container.image,
