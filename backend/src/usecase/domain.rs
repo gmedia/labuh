@@ -284,16 +284,17 @@ impl DomainUsecase {
     }
 
     pub async fn verify_domain(&self, domain: &str) -> Result<DnsVerificationResult> {
-        #[allow(deprecated)]
-        use hickory_resolver::TokioAsyncResolver;
-        use hickory_resolver::config::{ResolverConfig, ResolverOpts};
+        use hickory_resolver::TokioResolver;
 
-        #[allow(deprecated)]
-        let resolver =
-            TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default());
+        let resolver = TokioResolver::builder_tokio()
+            .expect("Failed to create resolver builder")
+            .build();
 
         let a_records = match resolver.lookup_ip(domain).await {
-            Ok(lookup) => lookup.iter().map(|ip| ip.to_string()).collect::<Vec<_>>(),
+            Ok(lookup) => lookup
+                .into_iter()
+                .map(|ip: std::net::IpAddr| ip.to_string())
+                .collect::<Vec<_>>(),
             Err(_) => vec![],
         };
 
@@ -302,8 +303,8 @@ impl DomainUsecase {
             .await
         {
             Ok(lookup) => lookup
-                .iter()
-                .filter_map(|r| r.clone().into_cname().ok())
+                .record_iter()
+                .filter_map(|r: &hickory_resolver::proto::rr::Record| r.data().as_cname())
                 .map(|cname| cname.to_string().trim_end_matches('.').to_string())
                 .collect::<Vec<_>>(),
             Err(_) => vec![],

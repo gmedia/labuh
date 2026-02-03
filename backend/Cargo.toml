@@ -61,7 +61,7 @@ async-stream = "0.3"
 tokio-stream = { version = "0.1", features = ["sync"] }
 
 # DNS resolver
-hickory-resolver = "0.24"
+hickory-resolver = { version = "0.25", features = ["tokio", "system-config"] }
 
 # Cron scheduling
 cron = "0.15"
