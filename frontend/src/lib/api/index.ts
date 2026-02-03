@@ -685,6 +685,12 @@ export const api = {
       listAll: async (teamId: string) => {
         return fetchApi<Domain[]>(`/stacks/domains?team_id=${teamId}`);
       },
+
+      syncAll: async () => {
+        return fetchApi<{ status: string }>("/domains/sync", {
+          method: "POST",
+        });
+      },
     },
 
     // Stack health overview
@@ -951,6 +957,15 @@ export const api = {
       return fetchApi<HistoricalContainerMetrics[]>(
         `/metrics/stacks/${stackId}/containers/${containerId}/metrics${query}`,
       );
+    },
+  },
+
+  networks: {
+    getTopology: async () => {
+      return fetchApi<{
+        nodes: { id: string; label: string; type: string; metadata: any }[];
+        edges: { from: string; to: string; label?: string }[];
+      }>("/networks/topology");
     },
   },
 };

@@ -34,6 +34,7 @@ pub trait RuntimePort: Send + Sync {
     // Network Management
     async fn ensure_network(&self, name: &str) -> Result<()>;
     async fn connect_network(&self, container: &str, network: &str) -> Result<()>;
+    async fn list_networks(&self) -> Result<Vec<NetworkInfo>>;
 
     // Swarm Management
     async fn is_swarm_enabled(&self) -> Result<bool>;
@@ -102,6 +103,7 @@ pub struct ContainerInfo {
     pub state: String,
     pub status: String,
     pub labels: std::collections::HashMap<String, String>,
+    pub networks: std::collections::HashMap<String, EndpointInfo>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -127,4 +129,26 @@ pub struct NodeResources {
 pub struct SwarmTokens {
     pub manager: String,
     pub worker: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct NetworkInfo {
+    pub id: String,
+    pub name: String,
+    pub driver: String,
+    pub scope: String,
+    pub internal: bool,
+    pub attachable: bool,
+    pub ingress: bool,
+    pub containers: std::collections::HashMap<String, EndpointInfo>,
+    pub labels: std::collections::HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct EndpointInfo {
+    pub name: String,
+    pub endpoint_id: String,
+    pub mac_address: String,
+    pub ipv4_address: String,
+    pub ipv6_address: String,
 }

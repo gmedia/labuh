@@ -4,7 +4,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
-	import { Globe, Plus, Settings2, Trash2, ShieldCheck, ShieldAlert, Cloud, Radio, ExternalLink } from '@lucide/svelte';
+	import { Globe, Plus, Settings2, Trash2, ShieldCheck, ShieldAlert, Cloud, Radio, ExternalLink, RefreshCw } from '@lucide/svelte';
 	import { DomainController } from '$lib/features/domains/domain-controller.svelte';
 	import DnsConfigDialog from '$lib/features/domains/components/DnsConfigDialog.svelte';
 	import RegisterDomainDialog from '$lib/features/domains/components/RegisterDomainDialog.svelte';
@@ -38,6 +38,10 @@
 			<Button variant="outline" class="gap-2" onclick={() => ctrl.showDnsDialog = true}>
 				<Settings2 class="h-4 w-4" />
 				DNS Settings
+			</Button>
+			<Button variant="outline" class="gap-2" onclick={() => ctrl.syncInfrastructure()} disabled={ctrl.syncing}>
+				<RefreshCw class="h-4 w-4 {ctrl.syncing ? 'animate-spin' : ''}" />
+				Sync Infrastructure
 			</Button>
 			<Button class="gap-2 shadow-lg shadow-blue-500/20" onclick={() => ctrl.openRegisterDialog()}>
 				<Plus class="h-4 w-4" />

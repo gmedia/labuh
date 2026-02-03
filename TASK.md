@@ -227,17 +227,33 @@
   - [x] Native host shell access (WebSockets + portable-pty)
   - [x] Xterm.js integration for all cluster nodes
 
-### Phase 23: Smart Ingress & Network Visualization (Planned)
+### Phase 23: Smart Ingress & Network Visualization ✅
 
-- [ ] **Network Discovery**
-  - [ ] Network Topology Discovery API
-  - [ ] Automated DNS record sync for _all_ ingress types
-- [ ] **Smart Routing**
-  - [ ] Caddy Dynamic Configuration with multi-node sync
-  - [ ] Automated health-based traffic steering
-- [ ] **Visualizer**
-  - [ ] Network Topology Visualization Diagram
-  - [ ] Real-time cluster traffic heatmap
+- [x] **Standalone Host Terminal**
+  - [x] Add "Terminal" to sidebar navigation
+  - [x] Standalone terminal page using xterm.js & portable-pty
+- [x] **Smart Ingress & Routing**
+  - [x] Automated DNS record sync for all ingress types (A/CNAME)
+  - [x] Caddy Dynamic Configuration synchronization
+  - [x] Automated Cloudflare Tunnel ingress rules reconciliation
+- [x] **Network Visualization**
+  - [x] Network Topology Discovery API
+  - [x] Interactive force-directed graph (D3.js)
+  - [x] Real-time container status indicators in topology
+
+---
+
+## 🔬 Strategic Improvements (Under Consideration)
+
+### Smart HA Ingress & Reconciliation
+
+- [ ] **Background Reconciliation Loop**: Periodic health check for Swarm nodes.
+- [ ] **Auto-Failover DNS**: Automatically update Cloudflare record content when the current "Ingress Node" goes down.
+- [ ] **Caddy State Restoration**: Trigger automated infrastructure sync when Caddy container migrates to a new node.
+- [ ] **Zero-Downtime Migration**: Ensure traffic steering happens before/during service reshuffling.
+
+> [!NOTE]
+> Terlalu kompleks? Masih dalam tahap pertimbangan karena tantangan sinkronisasi state vs kecepatan propagasi DNS.
 
 ---
 

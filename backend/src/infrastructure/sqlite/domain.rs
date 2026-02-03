@@ -93,4 +93,13 @@ impl DomainRepository for SqliteDomainRepository {
             .await?;
         Ok(())
     }
+
+    async fn update_dns_record_id(&self, id: &str, dns_record_id: &str) -> Result<()> {
+        sqlx::query("UPDATE domains SET dns_record_id = ? WHERE id = ?")
+            .bind(dns_record_id)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
 }

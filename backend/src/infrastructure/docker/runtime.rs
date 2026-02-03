@@ -6,15 +6,18 @@ use bollard::models::{
 };
 use bollard::query_parameters::{
     BuildImageOptions, CreateContainerOptions, CreateImageOptions, ListContainersOptions,
-    ListImagesOptions, ListNodesOptions, LogsOptions, RemoveContainerOptions, RemoveImageOptions,
-    StartContainerOptions, StatsOptions, StopContainerOptions, UpdateServiceOptions,
+    ListImagesOptions, ListNetworksOptions, ListNodesOptions, LogsOptions, RemoveContainerOptions,
+    RemoveImageOptions, StartContainerOptions, StatsOptions, StopContainerOptions,
+    UpdateServiceOptions,
 };
 use bollard::Docker;
 use futures::StreamExt;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::domain::runtime::{ContainerConfig, ContainerInfo, RuntimePort};
+use crate::domain::runtime::{
+    ContainerConfig, ContainerInfo, EndpointInfo, NetworkInfo, RuntimePort,
+};
 use crate::error::{AppError, Result};
 
 pub struct DockerRuntimeAdapter {
@@ -232,13 +235,35 @@ impl RuntimePort for DockerRuntimeAdapter {
 
         Ok(containers
             .into_iter()
-            .map(|c| ContainerInfo {
-                id: c.id.unwrap_or_default(),
-                names: c.names.unwrap_or_default(),
-                image: c.image.unwrap_or_default(),
-                state: c.state.map(|s| s.to_string()).unwrap_or_default(),
-                status: c.status.unwrap_or_default(),
-                labels: c.labels.unwrap_or_default(),
+            .map(|c| {
+                let networks = c
+                    .network_settings
+                    .and_then(|ns| ns.networks)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|(name, settings)| {
+                        (
+                            name.clone(),
+                            EndpointInfo {
+                                name,
+                                endpoint_id: settings.endpoint_id.unwrap_or_default(),
+                                mac_address: settings.mac_address.unwrap_or_default(),
+                                ipv4_address: settings.ip_address.unwrap_or_default(),
+                                ipv6_address: settings.global_ipv6_address.unwrap_or_default(),
+                            },
+                        )
+                    })
+                    .collect();
+
+                ContainerInfo {
+                    id: c.id.unwrap_or_default(),
+                    names: c.names.unwrap_or_default(),
+                    image: c.image.unwrap_or_default(),
+                    state: c.state.map(|s| s.to_string()).unwrap_or_default(),
+                    status: c.status.unwrap_or_default(),
+                    labels: c.labels.unwrap_or_default(),
+                    networks,
+                }
             })
             .collect())
     }
@@ -249,6 +274,26 @@ impl RuntimePort for DockerRuntimeAdapter {
             .inspect_container(id, None)
             .await
             .map_err(|e| AppError::ContainerRuntime(e.to_string()))?;
+
+        let networks = container
+            .network_settings
+            .as_ref()
+            .and_then(|ns| ns.networks.clone())
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(name, settings)| {
+                (
+                    name.clone(),
+                    EndpointInfo {
+                        name,
+                        endpoint_id: settings.endpoint_id.unwrap_or_default(),
+                        mac_address: settings.mac_address.unwrap_or_default(),
+                        ipv4_address: settings.ip_address.unwrap_or_default(),
+                        ipv6_address: settings.global_ipv6_address.unwrap_or_default(),
+                    },
+                )
+            })
+            .collect();
 
         Ok(ContainerInfo {
             id: container.id.unwrap_or_default(),
@@ -275,6 +320,7 @@ impl RuntimePort for DockerRuntimeAdapter {
                 .as_ref()
                 .and_then(|c| c.labels.clone())
                 .unwrap_or_default(),
+            networks,
         })
     }
 
@@ -616,6 +662,31 @@ impl RuntimePort for DockerRuntimeAdapter {
             }
         }
         Ok(())
+    }
+
+    async fn list_networks(&self) -> Result<Vec<NetworkInfo>> {
+        let options = ListNetworksOptions::default();
+
+        let networks = self
+            .docker
+            .list_networks(Some(options))
+            .await
+            .map_err(|e| AppError::ContainerRuntime(e.to_string()))?;
+
+        Ok(networks
+            .into_iter()
+            .map(|n| NetworkInfo {
+                id: n.id.unwrap_or_default(),
+                name: n.name.unwrap_or_default(),
+                driver: n.driver.unwrap_or_default(),
+                scope: n.scope.unwrap_or_default(),
+                internal: n.internal.unwrap_or(false),
+                attachable: n.attachable.unwrap_or(false),
+                ingress: n.ingress.unwrap_or(false),
+                labels: n.labels.unwrap_or_default(),
+                containers: HashMap::new(), // Summary doesn't have containers, need to inspect if needed
+            })
+            .collect())
     }
 
     async fn is_swarm_enabled(&self) -> Result<bool> {

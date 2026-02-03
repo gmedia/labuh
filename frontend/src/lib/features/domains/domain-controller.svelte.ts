@@ -14,6 +14,7 @@ export class DomainController {
   remoteRecords = $state<RemoteDnsRecord[]>([]);
   loading = $state(false);
   loadingRemote = $state(false);
+  syncing = $state(false);
 
   // UI States
   showDnsDialog = $state(false);
@@ -350,6 +351,23 @@ export class DomainController {
       toast.error("Network error during DNS update");
     } finally {
       this.updatingDns = false;
+    }
+  }
+
+  async syncInfrastructure() {
+    this.syncing = true;
+    try {
+      const res = await api.stacks.domains.syncAll();
+      if (!res.error) {
+        toast.success("Infrastructure synchronized successfully");
+        await this.loadAll();
+      } else {
+        toast.error(res.error || "Failed to synchronize infrastructure");
+      }
+    } catch (err) {
+      toast.error("Network error during synchronization");
+    } finally {
+      this.syncing = false;
     }
   }
 }

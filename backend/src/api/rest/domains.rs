@@ -160,6 +160,19 @@ async fn update_dns(
     Ok(Json(serde_json::json!({ "status": "updated" })))
 }
 
+async fn sync_domains(
+    State(state): State<Arc<AppState>>,
+    Extension(_current_user): Extension<CurrentUser>,
+) -> Result<Json<serde_json::Value>> {
+    let domain_uc = state.domain_usecase.as_ref().ok_or(AppError::Internal(
+        "Domain usecase not available".to_string(),
+    ))?;
+
+    domain_uc.sync_infrastructure().await?;
+
+    Ok(Json(serde_json::json!({ "status": "synchronized" })))
+}
+
 pub fn domain_routes(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/domains", get(list_all_domains))
@@ -171,5 +184,6 @@ pub fn domain_routes(state: Arc<AppState>) -> Router {
             "/{stack_id}/domains/{domain}/dns",
             axum::routing::put(update_dns),
         )
+        .route("/domains/sync", post(sync_domains))
         .with_state(state)
 }

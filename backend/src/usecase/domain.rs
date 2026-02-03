@@ -354,6 +354,94 @@ impl DomainUsecase {
         Ok(())
     }
 
+    pub async fn sync_infrastructure(&self) -> Result<()> {
+        let domains = self.domain_repo.list_all().await?;
+        for domain in domains {
+            // 1. Sync Caddy
+            if matches!(domain.r#type, DomainType::Caddy) {
+                let container_upstream =
+                    format!("{}:{}", domain.container_name, domain.container_port);
+                let _ = self
+                    .caddy_client
+                    .add_route(&domain.domain, &container_upstream)
+                    .await;
+            }
+
+            // 2. Sync DNS (Create if missing)
+            if !matches!(domain.provider, DomainProvider::Custom) {
+                if let Ok(stack) = self.stack_repo.find_by_id_internal(&domain.stack_id).await {
+                    if let Ok(provider_impl) = self
+                        .dns_usecase
+                        .get_provider(&stack.team_id, domain.provider.clone())
+                        .await
+                    {
+                        // Check if record exists in remote (simplified: only if we don't have dns_record_id or if we want to be thorough)
+                        // For simplicity and performance, we'll only recreate if dns_record_id is missing
+                        // or if we want to "force" sync we could check remote records.
+                        // Let's at least ensure we have a record ID.
+                        if domain.dns_record_id.is_none() {
+                             // Determine record type and content
+                             let (record_type, content) = match domain.r#type {
+                                DomainType::Caddy => {
+                                    let ip = std::env::var("LABUH_PUBLIC_IP")
+                                        .unwrap_or_else(|_| "127.0.0.1".to_string());
+                                    ("A".to_string(), ip)
+                                }
+                                DomainType::Tunnel => {
+                                    let target = format!(
+                                        "{}.cfargotunnel.com",
+                                        domain.tunnel_id.as_deref().unwrap_or("unknown")
+                                    );
+                                    ("CNAME".to_string(), target)
+                                }
+                            };
+
+                            if let Ok(new_id) = provider_impl.create_record(&domain.domain, &record_type, &content, domain.proxied).await {
+                                let _ = self.domain_repo.update_dns_record_id(&domain.id, &new_id).await;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Sync Tunnel Ingress
+            if matches!(domain.r#type, DomainType::Tunnel) {
+                if let Some(tunnel_id) = &domain.tunnel_id {
+                    if let Ok(stack) = self.stack_repo.find_by_id_internal(&domain.stack_id).await {
+                        if let Ok(cf) = self.dns_usecase.get_cloudflare_provider(&stack.team_id).await {
+                             if let Some(account_id) = cf.get_account_id() {
+                                if let Ok(mut config) = cf.get_tunnel_configuration(&account_id, tunnel_id).await {
+                                    if let Some(ingress) = config["ingress"].as_array_mut() {
+                                        // Check if domain is in ingress
+                                        let exists = ingress.iter().any(|rule| {
+                                            rule["hostname"].as_str() == Some(&domain.domain)
+                                        });
+
+                                        if !exists {
+                                            let new_rule = serde_json::json!({
+                                                "hostname": domain.domain,
+                                                "service": format!("http://{}:{}", domain.container_name, domain.container_port)
+                                            });
+
+                                            let catch_all = ingress.pop();
+                                            ingress.push(new_rule);
+                                            if let Some(ca) = catch_all {
+                                                ingress.push(ca);
+                                            }
+
+                                            let _ = cf.update_tunnel_configuration(&account_id, tunnel_id, config).await;
+                                        }
+                                    }
+                                }
+                             }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub async fn update_domain_dns(
         &self,
         stack_id: &str,

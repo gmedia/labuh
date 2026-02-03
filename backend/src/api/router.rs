@@ -119,6 +119,7 @@ fn create_protected_routes(state: Arc<AppState>) -> Router {
             )
             .nest("/templates", template_routes(template_uc.clone()))
             .nest("/nodes", node_routes(state.node_usecase.clone()))
+            .nest("/networks", network_routes(state.clone()))
             .nest("/metrics", metrics_routes(metrics_uc.clone()))
             .route(
                 "/nodes/terminal",

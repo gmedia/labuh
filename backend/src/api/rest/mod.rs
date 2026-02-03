@@ -15,6 +15,7 @@ pub mod system;
 pub mod team;
 pub mod templates;
 pub mod webhooks;
+pub mod network;
 
 pub use auth::auth_routes;
 pub use containers::container_routes;
@@ -32,3 +33,4 @@ pub use stacks::stack_routes;
 pub use system::system_routes;
 pub use team::team_routes;
 pub use templates::template_routes;
+pub use network::network_routes;

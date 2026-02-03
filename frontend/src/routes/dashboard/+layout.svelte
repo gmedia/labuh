@@ -19,7 +19,9 @@
 		Ship,
 		Terminal,
 		Users,
-		Globe
+		Globe,
+		Monitor,
+		Network
 	} from '@lucide/svelte';
 
 	let { children } = $props();
@@ -30,7 +32,9 @@
 		{ href: '/dashboard/images', label: 'Images', icon: Image },
 		{ href: '/dashboard/stacks', label: 'Stacks', icon: Layers },
 		{ href: '/dashboard/nodes', label: 'Nodes', icon: Ship },
+		{ href: '/dashboard/terminal', label: 'Host Terminal', icon: Monitor },
 		{ href: '/dashboard/domains', label: 'Domains', icon: Globe },
+		{ href: '/dashboard/networks', label: 'Networks', icon: Network },
 		{ href: '/dashboard/logs', label: 'Logs', icon: Terminal },
 		{ href: '/dashboard/templates', label: 'Templates', icon: LayoutGrid },
 		{ href: '/dashboard/teams', label: 'Teams', icon: Users },
