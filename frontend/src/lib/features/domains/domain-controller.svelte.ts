@@ -324,9 +324,6 @@ export class DomainController {
 
   openEditDns(domain: Domain) {
     this.editingDomain = domain;
-    // We don't have the current type/content in the local domain record,
-    // so we'll let the user fill it or we could try to find it in remoteRecords
-    // if they already loaded them. For now, default to A.
     this.editDnsType = domain.type === "Tunnel" ? "CNAME" : "A";
     this.editDnsContent = "";
     this.editProxied = domain.proxied;

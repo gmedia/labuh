@@ -23,12 +23,13 @@ Labuh diciptakan untuk menjembatani celah antara Docker Compose manual yang memb
 
 ## Fitur Unggulan
 
-- **Docker Swarm Mode**: Native support untuk clustering, multi-node scaling, dan high availability.
-- **Universal Multi-Arch**: Dukungan native untuk deployment di infrastruktur x86_64 dan ARM64.
-- **Git Integration & Build**: Deploy langsung dari repository Git dan bangun image dari Dockerfile secara otomatis.
+- **Docker Swarm Mode**: Dukungan native untuk clustering, multi-node scaling, dan high availability.
+- **Universal Multi-Arch**: Berjalan di infrastruktur x86_64 dan ARM64 (Raspberry Pi, TV Box STB, dll).
+- **Git Integration & Build**: Deploy langsung dari repository Git dan bangun image secara otomatis.
 - **Manajemen Stack**: Deploy aplikasi multi-container menggunakan format standar `docker-compose.yml`.
 - **Terminal Interaktif**: Akses shell container DAN host server langsung dari dashboard.
-- **Smart Ingress**: Integrasi Caddy otomatis dengan dukungan **Cloudflare Tunnels** untuk eksposur aman tanpa public IP.
+- **Smart Ingress**: Integrasi Caddy otomatis dengan dukungan **Cloudflare Tunnels** dan **Multi-Provider DNS**.
 - **Network Visualization**: Visualisasi topologi jaringan container dan cluster secara interaktif.
-- **Monitoring & Log**: Pantau kesehatan sistem, resource usage (CPU/RAM), dan log container secara real-time.
-- **Webhook Automation**: Integrasikan Labuh dengan alur CI/CD Anda yang sudah ada untuk deployment otomatis.
+- **Monitoring & Resource Tracking**: Pantau metrik historis CPU/RAM dan log container secara real-time.
+- **Webhook Automation**: Integrasikan dengan CI/CD untuk deployment otomatis saat image baru tersedia.
+- **App Templates**: Galeri aplikasi populer yang siap deploy dalam hitungan detik.

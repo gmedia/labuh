@@ -5,9 +5,6 @@ use async_trait::async_trait;
 #[async_trait]
 pub trait DnsProvider: Send + Sync {
     /// Create or update a DNS record
-    /// domain: The full domain name (e.g., "sub.example.com")
-    /// record_type: A, CNAME, TXT, etc.
-    /// content: IP address, target domain, or text
     async fn create_record(
         &self,
         domain: &str,

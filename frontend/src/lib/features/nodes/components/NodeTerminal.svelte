@@ -40,18 +40,7 @@
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-      // In a real app we might need to send auth token via first message if headers are not possible with raw WS
-      // or use a query param.
-      // Actually, my backend uses axum_auth which can use query param sometimes,
-      // but for now I'll just assume cookie or handled by proxy.
-      // Wait, let's look at how I implemented the backend handler.
-      // It expects CurrentUser extension which normally comes from headers.
-      // WebSockets in browser don't support custom headers easily.
-      // I should have used a ticket-based system or query param.
-
-      // For now, let's try sending token as first message if I refactor backend,
-      // but if I use a subprotocol or query param it might work.
-      // Let's assume for now it works or I'll fix backend.
+      // WebSocket connection established
     };
 
     ws.onmessage = async (event) => {

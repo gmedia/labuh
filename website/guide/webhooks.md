@@ -15,8 +15,12 @@ Setiap Stack di Labuh memiliki sebuah **Webhook Token** unik. Saat request POST 
 URL webhook untuk stack Anda memiliki format:
 
 ```text
-POST http://<alamat-labuh>:3000/api/webhooks/deploy/<stack-id>/<token>
+POST http://<alamat-labuh>:3000/api/webhooks/deploy/<stack-id>/<token>?service=<service_name>
 ```
+
+- **`<stack-id>`**: ID unik stack Anda.
+- **`<token>`**: Token keamanan 32 karakter.
+- **`service`** (Opsional): Jika disertakan, Labuh hanya akan memerintahkan redeploy untuk service tertentu tersebut, bukan seluruh stack.
 
 ## Integrasi GitHub Actions
 

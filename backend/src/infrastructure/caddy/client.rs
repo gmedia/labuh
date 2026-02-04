@@ -62,15 +62,8 @@ impl CaddyClient {
             .find(|c| c.names.iter().any(|n| n.contains(container_name)));
 
         if let Some(c) = existing {
-            // We can't easily check ports from list_containers result in simpler struct,
-            // but we can trust it if it's running or inspect it.
-            // Let's inspect to be safe if status is running.
             if c.state == "running" {
                 let _info = runtime.inspect_container(&c.id).await?;
-                // Check if port 2019 is bound (required for Admin API)
-                // Note: ContainerInfo from runtime might not have ports detail structure as bollard,
-                // checking generic validity.
-                // For now, assuming if running it's fine or we restart.
                 return Ok(());
             }
 
@@ -110,7 +103,7 @@ impl CaddyClient {
         reverse_proxy labuh:3000
     }
 
-    # Frontend fallback (Proxies to Labuh host-gateway for now)
+    # Frontend fallback
     handle {
         reverse_proxy labuh:3000
     }
@@ -142,11 +135,6 @@ impl CaddyClient {
             image: image.to_string(),
             ports: Some(port_bindings),
             volumes: Some(volumes),
-            // Extra hosts need adding to RuntimePort definition if we want to support them properly
-            // For now omitting extra_hosts or we need to add specific method for Caddy.
-            // Or rely on `DockerRuntimeAdapter` internal details via trait extension?
-            // Actually `ContainerConfig` has limited fields.
-            // We need `extra_hosts` in `ContainerConfig` to support `labuh:host-gateway`.
             env: None,
             cmd: None,
             labels: None,
@@ -156,8 +144,6 @@ impl CaddyClient {
             extra_hosts: None,
             restart_policy: Some("always".to_string()),
         };
-        // TODO: Add extra_hosts to ContainerConfig if strictly needed for host-gateway.
-        // Assuming bridge mode default.
 
         let id = runtime.create_container(config).await?;
 

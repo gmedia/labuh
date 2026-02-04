@@ -648,9 +648,6 @@ impl StackUsecase {
             }
         }
 
-        // For now we only support HTTP health checks.
-        // Command execution in containers would require adding `exec` to RuntimePort.
-
         Ok(())
     }
 

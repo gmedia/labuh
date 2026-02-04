@@ -40,9 +40,6 @@ export class ImageController {
     this.pulling = true;
     toast.info(`Starting to pull ${this.imageUrl}...`);
 
-    // We don't await this if we want it to be truly background,
-    // but the API call itself is slow.
-    // For now, we'll keep the await but the toast gives immediate feedback.
     try {
       const result = await api.images.pull(this.imageUrl, team.id);
       if (result.data) {

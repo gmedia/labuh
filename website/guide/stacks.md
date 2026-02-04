@@ -21,15 +21,18 @@ Labuh menghadirkan integrasi Git tingkat lanjut:
 3. **Log Build Real-time**: Pantau proses build langkah-demi-langkah lewat modal **Build Logs**.
 4. **Git Sync**: Lakukan sinkronisasi repository dan redeploy kapanpun source code Anda berubah.
 
-## Pengelolaan Stack
+## Pengelolaan & Otomatisasi
 
 Di halaman detail stack, Anda dapat:
 
-- **Start/Stop/Restart**: Mengontrol seluruh stack sekaligus.
-- **Redeploy**: Menarik image terbaru, melakukan build ulang (jika ada Dockerfile), dan membuat ulang container.
-- **Terminal Exec**: Akses shell interaktif langsung dari browser menggunakan xterm.js melalui ikon terminal di Container List.
-- **Log Viewer**: Melihat log gabungan dari seluruh container dalam stack tersebut.
-- **Update Compose**: Mengubah konfigurasi YAML dan melakukan sinkronisasi otomatis.
+- **Start/Stop/Restart**: Mengontrol seluruh lifecycle stack.
+- **Redeploy & Rollback**: Menarik image terbaru atau kembali ke versi konfigurasi sebelumnya jika terjadi error.
+- **Automation Settings**:
+  - **Cron Schedule**: Atur jadwal deployment otomatis (misal: setiap jam atau setiap tengah malam).
+  - **Health Checks**: Pantau ketersediaan aplikasi via endpoint HTTP secara berkala.
+- **Terminal Exec**: Akses shell interaktif langsung dari dashboard menggunakan xterm.js.
+- **Log Viewer**: Streaming log gabungan dari seluruh container dalam stack.
+- **Update Compose**: Mengubah konfigurasi YAML secara live.
 
 ## Network & Volume
 

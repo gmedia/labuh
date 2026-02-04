@@ -1,6 +1,6 @@
 # Swarm & Clusters
 
-Labuh v0.3.0 brings native support for **Docker Swarm**, allowing you to manage a cluster of multiple servers (nodes) directly from a single dashboard.
+Labuh v0.4.0 menghadirkan dukungan native untuk **Docker Swarm**, memungkinkan Anda mengelola cluster dari banyak server (node) langsung dari satu dashboard.
 
 ## Swarm Overview
 
@@ -37,12 +37,16 @@ To add more servers to your cluster:
 
 You can perform these actions by clicking the **...** (Options) button on any node card.
 
+### Terminal & Monitoring
+
+- **Node Terminal**: Akses shell host server langsung dari browser menggunakan ikon terminal di setiap kartu node. Sangat berguna untuk maintenance server jarak jauh.
+- **Resource Monitoring**: Pantau kapasitas CPU, RAM, dan Disk dari setiap node secara real-time.
+
 ## Network Visualization
 
-Labuh provides a powerful **Network Visualizer** to help you understand your cluster's topology.
+Labuh menyediakan **Network Visualizer** yang powerful untuk membantu Anda memahami topologi jaringan di dalam cluster.
 
-- **Interactive Graph**: See how containers connect to networks and other containers.
-- **Real-time Status**: Color-coded nodes show the health of your services.
-- **Traffic Heatmap**: (Coming Soon) Visualize traffic flow between nodes.
+- **Interactive Graph**: Lihat bagaimana container terhubung ke network dan container lainnya.
+- **Real-time Status**: Node berwarna menunjukkan kesehatan service Anda.
 
-Access the visualizer by clicking the **Network Map** tab on the Dashboard or Nodes page.
+Akses visualizer melalui menu **Networks** di sidebar dashboard.

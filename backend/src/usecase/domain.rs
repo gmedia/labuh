@@ -212,8 +212,6 @@ impl DomainUsecase {
             }
         }
 
-        // (Removed old duplicated tunnel logic here as it's now handled during DNS provisioning)
-
         Ok(domain_record)
     }
 
@@ -276,8 +274,6 @@ impl DomainUsecase {
         if matches!(domain_record.r#type, DomainType::Caddy) {
             let _ = self.caddy_client.remove_route(&domain_record.domain).await;
         }
-
-        // (Removed old duplicated tunnel logic here as it's now handled above)
 
         // Delete from database
         self.domain_repo.delete(&domain_record.id).await
@@ -358,7 +354,6 @@ impl DomainUsecase {
                     .await;
             }
 
-            // 2. Sync DNS (Create if missing)
             // 2. Sync DNS (Create if missing)
             if !matches!(domain.provider, DomainProvider::Custom)
                 && let Ok(stack) = self.stack_repo.find_by_id_internal(&domain.stack_id).await

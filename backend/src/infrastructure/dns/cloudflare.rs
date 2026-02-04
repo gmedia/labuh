@@ -313,7 +313,6 @@ impl CloudflareProvider {
 
         for zone in zones {
             // Check if domain ends with zone name (e.g. sub.example.com ends with example.com)
-            // We need to handle the root case carefully.
             if domain == zone.name || domain.ends_with(&format!(".{}", zone.name)) {
                 match &best_match {
                     None => best_match = Some(zone),

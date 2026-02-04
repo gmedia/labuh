@@ -56,8 +56,6 @@ impl EnvironmentRepository for SqliteEnvironmentRepository {
     }
 
     async fn save(&self, var: StackEnvVar) -> Result<StackEnvVar> {
-        // We can use an upsert or check and insert/update
-        // For simplicity and since we have find_existing, we'll do manual check in usecase or just sqlx insert/update
         let existing = self
             .find_existing(&var.stack_id, &var.container_name, &var.key)
             .await?;

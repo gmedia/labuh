@@ -92,7 +92,6 @@ export class SettingsController {
   }
 
   async saveProfile() {
-    // Backend doesn't have profile update API yet, skipping for now
     toast.info("Profile update not yet implemented on backend");
   }
 }

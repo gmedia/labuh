@@ -17,10 +17,13 @@ Labuh secara otomatis mengelola containter **Caddy** di port 80 dan 443 server A
 
 Labuh menyediakan fitur verifikasi DNS sederhana di dashboard untuk memastikan domain Anda sudah diarahkan ke IP yang benar sebelum Caddy mencoba mengambil sertifikat SSL.
 
-## Cloudflare Tunnels (Zero Trust)
+## Cloudflare Tunnels & DNS Automation
 
-Selain eksposur langsung via Public IP (Caddy), Labuh mendukung **Cloudflare Tunnels** untuk keamanan maksimum tanpa membuka port inbound.
+Labuh menghadirkan integrasi mendalam dengan ekosistem Cloudflare untuk eksposur aplikasi yang aman dan otomatis:
 
-1. **Pilih Provider**: Saat mendaftarkan domain, pilih **Cloudflare Tunnel**.
-2. **Kredensial**: Masukkan `Tunnel ID`, `Tunnel Token`, dan `Account ID` dari dashboard Cloudflare Zero Trust Anda.
-3. **Automasi**: Labuh akan secara otomatis membuat ingress rules di Cloudflare Edge untuk mengarahkan traffic ke container Anda tanpa perlu konfigurasi manual di sisi Cloudflare.
+1. **DNS Provider**: Hubungkan API Token Cloudflare Anda di **Settings > DNS**.
+2. **Automated Records**: Saat mendaftarkan domain, Labuh bisa secara otomatis membuat record A/CNAME di dashboard Cloudflare Anda.
+3. **Cloudflare Tunnels**:
+   - **Keamanan**: Tanpa perlu membuka port port 80/443 ke publik IP server.
+   - **Kredensial**: Cukup masukkan `Tunnel ID`, `Tunnel Token`, dan `Account ID`.
+   - **Alur**: Labuh akan mengkonfigurasi rute ingress di Cloudflare Edge secara otomatis sehingga traffic langsung mengarah ke container yang tepat melalui tunnel aman.
