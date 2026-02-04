@@ -58,7 +58,7 @@ fi
 check_existing() {
     if [[ -f "$INSTALL_DIR/labuh" ]]; then
         echo -e "${YELLOW}Labuh is already installed in $INSTALL_DIR.${NC}"
-        read -p "Do you want to update to the latest version instead? [Y/n] " -n 1 -r
+        read -p "Do you want to update to the latest version instead? [Y/n] " -n 1 -r < /dev/tty
         echo ""
         if [[ ! $REPLY =~ ^[Nn]$ ]]; then
             echo -e "${BLUE}Running update mechanism...${NC}"

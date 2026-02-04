@@ -8,6 +8,14 @@ export class AuthController {
   confirmPassword = $state("");
   error = $state("");
   loading = $state(false);
+  setupRequired = $state<boolean | null>(null);
+
+  async checkSetup() {
+    const result = await api.auth.isSetupRequired();
+    if (result.data !== undefined) {
+      this.setupRequired = result.data;
+    }
+  }
 
   async login(e: Event) {
     e.preventDefault();

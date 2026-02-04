@@ -412,6 +412,10 @@ export const api = {
     me: async () => {
       return fetchApi<User>("/me");
     },
+
+    isSetupRequired: async () => {
+      return fetchApi<boolean>("/auth/setup-required");
+    },
   },
 
   health: {
@@ -801,18 +805,17 @@ export const api = {
       });
     },
 
-    listMembers: async (teamId: string) => {
-      return fetchApi<TeamMember[]>(`/teams/${teamId}/members`);
+    getMembers: async (id: string) => {
+      return fetchApi<TeamMember[]>(`/teams/${id}/members`);
     },
 
     addMember: async (
-      teamId: string,
-      email: string,
-      role: TeamRole = "Developer",
+      id: string,
+      data: { name: string; email: string; password?: string; role: string },
     ) => {
-      return fetchApi<{ status: string }>(`/teams/${teamId}/members`, {
+      return fetchApi<{ status: string }>(`/teams/${id}/members`, {
         method: "POST",
-        body: JSON.stringify({ email, role }),
+        body: JSON.stringify(data),
       });
     },
 

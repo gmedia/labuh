@@ -39,23 +39,33 @@
             <UserPlus class="h-4 w-4" />
             Invite Member
           </div>
-          <div class="flex flex-wrap gap-3">
-            <div class="flex-1 min-w-[200px]">
-              <Input placeholder="member@example.com" bind:value={ctrl.inviteEmail} />
+          <div class="flex flex-col gap-3">
+            <div class="flex flex-wrap gap-3">
+              <div class="flex-1 min-w-[200px]">
+                <Input placeholder="Full Name" bind:value={ctrl.inviteName} />
+              </div>
+              <div class="flex-1 min-w-[200px]">
+                <Input type="email" placeholder="member@example.com" bind:value={ctrl.inviteEmail} />
+              </div>
             </div>
-            <div class="w-32">
-              <select
-                bind:value={ctrl.inviteRole}
-                class="w-full flex h-10 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {#each ctrl.roles as r}
-                  <option value={r}>{r}</option>
-                {/each}
-              </select>
+            <div class="flex flex-wrap gap-3">
+              <div class="flex-1 min-w-[200px]">
+                <Input type="password" placeholder="Initial Password" bind:value={ctrl.invitePassword} />
+              </div>
+              <div class="w-32">
+                <select
+                  bind:value={ctrl.inviteRole}
+                  class="w-full flex h-10 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {#each ctrl.roles as r}
+                    <option value={r}>{r}</option>
+                  {/each}
+                </select>
+              </div>
+              <Button onclick={() => ctrl.inviteMember($activeTeam.team!.id)} disabled={ctrl.inviting || !ctrl.inviteEmail || !ctrl.inviteName || !ctrl.invitePassword}>
+                {ctrl.inviting ? 'Creating...' : 'Create & Invite'}
+              </Button>
             </div>
-            <Button onclick={() => ctrl.inviteMember($activeTeam.team!.id)} disabled={ctrl.inviting || !ctrl.inviteEmail}>
-              {ctrl.inviting ? 'Inviting...' : 'Invite'}
-            </Button>
           </div>
         </div>
       {/if}

@@ -109,6 +109,10 @@ impl AppState {
         let pool = self._pool.clone();
         let runtime = self.runtime.clone();
 
+        // User
+        let user_repo =
+            Arc::new(crate::infrastructure::sqlite::user::SqliteUserRepository::new(pool.clone()));
+
         // Environment
         let env_repo = Arc::new(
             crate::infrastructure::sqlite::environment::SqliteEnvironmentRepository::new(
@@ -121,7 +125,10 @@ impl AppState {
         // Team
         let team_repo =
             Arc::new(crate::infrastructure::sqlite::team::SqliteTeamRepository::new(pool.clone()));
-        let team_uc = Arc::new(TeamUsecase::new(team_repo.clone()));
+        let team_uc = Arc::new(crate::usecase::team::TeamUsecase::new(
+            team_repo.clone(),
+            user_repo.clone(),
+        ));
         self.team_usecase = Some(team_uc.clone());
 
         // Registry
@@ -226,6 +233,7 @@ impl AppState {
             stack_repo,
             caddy_client,
             dns_uc,
+            runtime.clone(),
             Some(tunnel_manager),
         ));
         self.domain_usecase = Some(domain_uc.clone());

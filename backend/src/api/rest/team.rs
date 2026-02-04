@@ -11,6 +11,14 @@ use crate::error::Result;
 use crate::usecase::team::TeamUsecase;
 use axum::Extension;
 
+#[derive(serde::Deserialize)]
+pub struct AddMemberRequest {
+    pub name: String,
+    pub email: String,
+    pub password: Option<String>,
+    pub role: String,
+}
+
 pub fn team_routes(usecase: Arc<TeamUsecase>) -> Router {
     Router::new()
         .route("/", get(list_teams).post(create_team))
@@ -65,16 +73,28 @@ async fn add_member(
     State(usecase): State<Arc<TeamUsecase>>,
     Path(id): Path<String>,
     Extension(user): Extension<CurrentUser>,
-    Json(payload): Json<TeamMember>,
+    Json(payload): Json<AddMemberRequest>,
 ) -> Result<Json<()>> {
-    usecase
-        .add_member(
-            &id,
-            &payload.user_id,
-            TeamRole::from(payload.role),
-            &user.id,
-        )
-        .await?;
+    if let Some(password) = payload.password {
+        // Create new user and add to team
+        usecase
+            .add_member_with_credentials(
+                &id,
+                &payload.name,
+                &payload.email,
+                &password,
+                TeamRole::from(payload.role),
+                &user.id,
+            )
+            .await?;
+    } else {
+        // Try to find existing user by email
+        // We'll actually need a way to look up user_id by email if we want to support existing users without passwords here.
+        // For now, let's assume we always provide name/email/password for new flow.
+        return Err(crate::error::AppError::BadRequest(
+            "Password is required for new members".to_string(),
+        ));
+    }
     Ok(Json(()))
 }
 
