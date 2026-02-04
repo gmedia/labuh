@@ -8,7 +8,7 @@ Labuh is a simple yet powerful Platform-as-a-Service (PaaS) designed to deploy, 
 
 For detailed guides, installation instructions, and architecture overview, please visit our official website:
 
-👉 **[https://hasanh47.github.io/labuh/](https://hasanh47.github.io/labuh/)** (Or your GitHub Pages URL)
+👉 **[https://gmedia.github.io/labuh/](https://gmedia.github.io/labuh/)** (Or your GitHub Pages URL)
 
 ## ✨ Highlights
 
@@ -36,10 +36,10 @@ For detailed guides, installation instructions, and architecture overview, pleas
 To get started immediately on your Linux server, run our auto-installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/HasanH47/labuh/main/deploy/quick-install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/gmedia/labuh/main/deploy/quick-install.sh | sudo bash
 ```
 
-For manual setup and development instructions, refer to the [Installation Guide](https://hasanh47.github.io/labuh/guide/installation.html).
+For manual setup and development instructions, refer to the [Installation Guide](https://gmedia.github.io/labuh/guide/installation.html).
 
 ## 🛠️ Tech Stack
 
@@ -53,5 +53,8 @@ For manual setup and development instructions, refer to the [Installation Guide]
 Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
+### 👤 Author & Maintainer
+* **Original Creator:** [HasanH47](https://github.com/HasanH47)
+* **Published by:** [Gmedia](https://github.com/gmedia)
 
-Built with ❤️ by the Labuh Team.
+Licensed under the [MIT License](LICENSE).

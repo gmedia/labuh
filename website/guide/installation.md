@@ -7,7 +7,7 @@ Labuh dirancang untuk bisa diinstal dengan sangat cepat menggunakan script otoma
 Gunakan perintah satu baris berikut untuk menginstal Labuh secara otomatis di sistem Linux Anda. Script ini akan mendeteksi OS, arsitektur, dan menginstal dependensi yang diperlukan (Docker/containerd).
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/HasanH47/labuh/main/deploy/quick-install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/gmedia/labuh/main/deploy/quick-install.sh | sudo bash
 ```
 
 ### Apa yang dilakukan script ini?

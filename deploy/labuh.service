@@ -1,6 +1,6 @@
 [Unit]
 Description=Labuh - Lightweight PaaS Platform
-Documentation=https://github.com/HasanH47/labuh
+Documentation=https://github.com/gmedia/labuh
 After=network.target docker.service containerd.service
 Wants=docker.service
 

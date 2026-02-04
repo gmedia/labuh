@@ -14,7 +14,7 @@ hero:
       link: /guide/introduction
     - theme: alt
       text: View on GitHub
-      link: https://github.com/HasanH47/labuh
+      link: https://github.com/gmedia/labuh
 
 features:
   - title: Built for Performance

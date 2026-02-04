@@ -57,7 +57,7 @@ export default withMermaid(
         },
       ],
       socialLinks: [
-        { icon: "github", link: "https://github.com/HasanH47/labuh" },
+        { icon: "github", link: "https://github.com/gmedia/labuh" },
       ],
       footer: {
         message: "Released under the MIT License.",
