@@ -56,10 +56,25 @@ fi
 echo -e "${YELLOW}Stopping labuh service...${NC}"
 systemctl stop labuh || true
 
-echo -e "${YELLOW}Replacing binary...${NC}"
+echo -e "${YELLOW}Replacing binary and updating components...${NC}"
 cp "${TMP_DIR}/labuh" "$INSTALL_DIR/labuh"
 chmod +x "$INSTALL_DIR/labuh"
-chown "$LABUH_USER:$LABUH_USER" "$INSTALL_DIR/labuh"
+
+# Update migrations
+if [[ -d "${TMP_DIR}/migrations" ]]; then
+    echo -e "${YELLOW}Updating database migrations...${NC}"
+    rm -rf "$INSTALL_DIR/migrations"
+    cp -r "${TMP_DIR}/migrations" "$INSTALL_DIR/"
+fi
+
+# Update frontend
+if [[ -d "${TMP_DIR}/frontend" ]]; then
+    echo -e "${YELLOW}Updating dashboard frontend...${NC}"
+    rm -rf "$INSTALL_DIR/frontend"
+    cp -r "${TMP_DIR}/frontend" "$INSTALL_DIR/"
+fi
+
+chown -R "$LABUH_USER:$LABUH_USER" "$INSTALL_DIR/labuh" "$INSTALL_DIR/migrations" "$INSTALL_DIR/frontend" 2>/dev/null || true
 
 echo -e "${YELLOW}Updating helper scripts and service configuration...${NC}"
 curl -fsSL "${RAW_URL}/deploy/backup.sh" -o "$INSTALL_DIR/backup.sh"

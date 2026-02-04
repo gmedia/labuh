@@ -179,6 +179,9 @@ install_labuh() {
         DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${LABUH_VERSION}/labuh-linux-${ARCH}.tar.gz"
     fi
     curl -fsSL "$DOWNLOAD_URL" -o /tmp/labuh.tar.gz
+    # Clean up old frontend to avoid stale files
+    rm -rf "$INSTALL_DIR/frontend"
+    rm -rf "$INSTALL_DIR/migrations"
     tar -xzf /tmp/labuh.tar.gz -C "$INSTALL_DIR"
     rm /tmp/labuh.tar.gz
     chmod +x "$INSTALL_DIR/labuh"
