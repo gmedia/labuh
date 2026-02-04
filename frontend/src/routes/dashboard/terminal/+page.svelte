@@ -7,6 +7,7 @@
   import { Monitor, Maximize2, Minimize2, RefreshCw } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
   import * as Card from '$lib/components/ui/card';
+  import { browser } from '$app/environment';
 
   let terminalElement: HTMLDivElement;
   let terminal: Terminal;
@@ -34,12 +35,10 @@
     fitAddon.fit();
 
     // Initialize WebSocket
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = API_URL.replace(/^https?:\/\//, '');
-    const token = localStorage.getItem('token');
-    const wsUrl = `${protocol}//${host}/api/nodes/terminal?token=${token}`;
+    let wsUrl = API_URL.replace(/^http/, 'ws');
+		const token = browser ? localStorage.getItem('token') : '';
 
-    ws = new WebSocket(wsUrl);
+    ws = new WebSocket(`${wsUrl}/api/nodes/terminal?token=${token}`);
 
     ws.onopen = () => {
       isConnected = true;
