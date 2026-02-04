@@ -21,7 +21,7 @@ serde_json = "1"
 serde_yaml = "0.9"
 
 # Authentication
-jsonwebtoken = "10"
+jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 argon2 = "0.5"
 password-hash = { version = "0.5", features = ["getrandom"] }
 
