@@ -1,10 +1,6 @@
 #!/bin/bash
 # Labuh - Quick Install Script
 # Usage: curl -fsSL https://raw.githubusercontent.com/gmedia/labuh/main/deploy/quick-install.sh | bash
-#
-# Or with options:
-# curl -fsSL ... | bash -s -- --runtime docker
-# curl -fsSL ... | bash -s -- --runtime containerd
 
 set -e
 
@@ -21,6 +17,7 @@ LABUH_VERSION="latest"
 INSTALL_DIR="/opt/labuh"
 LABUH_USER="labuh"
 GITHUB_REPO="gmedia/labuh"
+RAW_URL="https://raw.githubusercontent.com/${GITHUB_REPO}/main"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -57,6 +54,22 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
+# Detect existing installation
+check_existing() {
+    if [[ -f "$INSTALL_DIR/labuh" ]]; then
+        echo -e "${YELLOW}Labuh is already installed in $INSTALL_DIR.${NC}"
+        read -p "Do you want to update to the latest version instead? [Y/n] " -n 1 -r
+        echo ""
+        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+            echo -e "${BLUE}Running update mechanism...${NC}"
+            curl -fsSL "${RAW_URL}/deploy/update.sh" -o /tmp/labuh-update.sh
+            bash /tmp/labuh-update.sh
+            exit 0
+        fi
+        echo -e "${BLUE}Proceeding with fresh installation logic...${NC}"
+    fi
+}
+
 # Detect OS
 detect_os() {
     if [ -f /etc/os-release ]; then
@@ -71,27 +84,15 @@ detect_os() {
 
     echo -e "${GREEN}✓ Detected OS: $OS $OS_VERSION${NC}"
 
-    # Map for Docker repo URL
     case $OS in
-        ubuntu|pop|mint|neon)
-            DOCKER_OS="ubuntu"
-            ;;
-        debian|kali|raspbian)
-            DOCKER_OS="debian"
-            ;;
-        fedora)
-            DOCKER_OS="fedora"
-            ;;
-        centos|rhel|rocky)
-            DOCKER_OS="centos"
-            ;;
+        ubuntu|pop|mint|neon) DOCKER_OS="ubuntu" ;;
+        debian|kali|raspbian) DOCKER_OS="debian" ;;
+        fedora) DOCKER_OS="fedora" ;;
+        centos|rhel|rocky) DOCKER_OS="centos" ;;
         *)
-            if [[ "$ID_LIKE" == *"ubuntu"* ]]; then
-                DOCKER_OS="ubuntu"
-            elif [[ "$ID_LIKE" == *"debian"* ]]; then
-                DOCKER_OS="debian"
-            else
-                DOCKER_OS="$OS"
+            if [[ "$ID_LIKE" == *"ubuntu"* ]]; then DOCKER_OS="ubuntu"
+            elif [[ "$ID_LIKE" == *"debian"* ]]; then DOCKER_OS="debian"
+            else DOCKER_OS="$OS"
             fi
             ;;
     esac
@@ -99,16 +100,12 @@ detect_os() {
 
 # Detect architecture
 detect_arch() {
-    ARCH=$(uname -m)
-    case $ARCH in
-        x86_64)
-            ARCH="x86_64"
-            ;;
-        aarch64|arm64)
-            ARCH="aarch64"
-            ;;
+    ARCH_RAW=$(uname -m)
+    case $ARCH_RAW in
+        x86_64) ARCH="x86_64" ;;
+        aarch64|arm64) ARCH="aarch64" ;;
         *)
-            echo -e "${RED}Error: Unsupported architecture: $ARCH${NC}"
+            echo -e "${RED}Error: Unsupported architecture: $ARCH_RAW${NC}"
             exit 1
             ;;
     esac
@@ -118,7 +115,6 @@ detect_arch() {
 # Install essential dependencies
 install_dependencies() {
     echo -e "${YELLOW}Installing base dependencies...${NC}"
-
     case $OS in
         ubuntu|debian)
             apt-get update
@@ -129,28 +125,17 @@ install_dependencies() {
             ;;
         *)
             echo -e "${YELLOW}Warning: OS $OS not explicitly supported for dependency auto-install.${NC}"
-            echo -e "Ensuring openssl and curl are available..."
             if ! command -v openssl &> /dev/null || ! command -v curl &> /dev/null; then
-                echo -e "${RED}Error: Required tools (openssl, curl) missing. Please install them manually.${NC}"
+                echo -e "${RED}Error: Required tools (openssl, curl) missing.${NC}"
                 exit 1
             fi
             ;;
     esac
-    echo -e "${GREEN}✓ Base dependencies installed${NC}"
-}
-
-# Check if Docker is installed
-check_docker() {
-    if command -v docker &> /dev/null; then
-        return 0
-    fi
-    return 1
 }
 
 # Install Docker
 install_docker() {
     echo -e "${YELLOW}Installing Docker...${NC}"
-
     case $OS in
         ubuntu|debian|kali|raspbian|pop|mint|neon)
             apt-get update
@@ -158,10 +143,7 @@ install_docker() {
             install -m 0755 -d /etc/apt/keyrings
             curl -fsSL https://download.docker.com/linux/$DOCKER_OS/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes
             chmod a+r /etc/apt/keyrings/docker.gpg
-
-            # Use VERSION_CODENAME if available, fallback to lsb_release
             CODENAME=${VERSION_CODENAME:-$(lsb_release -cs)}
-
             echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$DOCKER_OS $CODENAME stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
             apt-get update
             apt-get install -y docker-ce docker-ce-cli containerd.io
@@ -171,169 +153,96 @@ install_docker() {
             dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
             dnf install -y docker-ce docker-ce-cli containerd.io
             ;;
-        *)
-            echo -e "${RED}Unsupported OS for Docker auto-install. Please install Docker manually.${NC}"
-            exit 1
-            ;;
     esac
-
     systemctl enable docker
     systemctl start docker
     echo -e "${GREEN}✓ Docker installed and started${NC}"
 }
 
-# Prompt for runtime selection (simplified for Docker)
 ensure_runtime() {
-    if [[ -n "$RUNTIME" ]]; then
-        return
-    fi
-
-    if check_docker; then
+    if command -v docker &> /dev/null; then
         RUNTIME="docker"
         echo -e "${GREEN}✓ Docker is already installed${NC}"
-        return
+    else
+        echo -e "${YELLOW}Docker is required for Labuh but not found. Installing...${NC}"
+        install_docker
+        RUNTIME="docker"
     fi
-
-    echo ""
-    echo -e "${YELLOW}Docker is required for Labuh but not found.${NC}"
-    echo "This script will now install Docker CE automatically."
-    echo ""
-
-    install_docker
-    RUNTIME="docker"
 }
 
-# Download and install Labuh binary
 install_labuh() {
     echo -e "${YELLOW}Downloading Labuh ${LABUH_VERSION}...${NC}"
-
-    # Create install directory
     mkdir -p "$INSTALL_DIR"
-
-    # Download binary
     if [[ "$LABUH_VERSION" == "latest" ]]; then
         DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/latest/download/labuh-linux-${ARCH}.tar.gz"
     else
         DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${LABUH_VERSION}/labuh-linux-${ARCH}.tar.gz"
     fi
-
     curl -fsSL "$DOWNLOAD_URL" -o /tmp/labuh.tar.gz
     tar -xzf /tmp/labuh.tar.gz -C "$INSTALL_DIR"
     rm /tmp/labuh.tar.gz
-
     chmod +x "$INSTALL_DIR/labuh"
-
-    echo -e "${GREEN}✓ Labuh installed to $INSTALL_DIR${NC}"
 }
 
-# Create systemd service
 setup_systemd() {
-    echo -e "${YELLOW}Setting up systemd service...${NC}"
+    echo -e "${YELLOW}Setting up systemd service and components...${NC}"
 
-    # Create user if not exists
+    # User Management
     if ! id "$LABUH_USER" &>/dev/null; then
-        useradd --system --no-create-home --shell /usr/sbin/nologin "$LABUH_USER"
+        useradd --system --create-home --home-dir /home/$LABUH_USER --shell /bin/sh "$LABUH_USER"
+    else
+        usermod -s /bin/sh "$LABUH_USER"
+        mkdir -p /home/$LABUH_USER
+        chown "$LABUH_USER:$LABUH_USER" /home/$LABUH_USER
     fi
+    [[ "$RUNTIME" == "docker" ]] && usermod -aG docker "$LABUH_USER"
 
-    # Add user to docker group
-    if [[ "$RUNTIME" == "docker" ]]; then
-        usermod -aG docker "$LABUH_USER"
-    fi
+    # Helper Scripts
+    echo -e "${YELLOW}Downloading helper scripts...${NC}"
+    for script in backup.sh restore.sh update.sh; do
+        curl -fsSL "${RAW_URL}/deploy/${script}" -o "$INSTALL_DIR/${script}"
+        chmod +x "$INSTALL_DIR/${script}"
+    done
 
-    # Create .env file
+    # Environment
     if [[ ! -f "$INSTALL_DIR/.env" ]]; then
+        echo -e "${YELLOW}Creating .env from example...${NC}"
+        curl -fsSL "${RAW_URL}/backend/.env.example" -o "$INSTALL_DIR/.env"
         JWT_SECRET=$(openssl rand -base64 32)
-        cat > "$INSTALL_DIR/.env" << EOF
-HOST=0.0.0.0
-PORT=3000
-DATABASE_URL=sqlite:$INSTALL_DIR/labuh.db?mode=rwc
-JWT_SECRET=$JWT_SECRET
-JWT_EXPIRATION_HOURS=24
-CADDY_ADMIN_API=http://localhost:2019
-BASE_DOMAIN=localhost
-FRONTEND_DIR=$INSTALL_DIR/frontend/build
-RUST_LOG=info
-EOF
+        sed -i "s|JWT_SECRET=.*|JWT_SECRET=${JWT_SECRET}|" "$INSTALL_DIR/.env"
+        sed -i "s|DATABASE_URL=.*|DATABASE_URL=sqlite:${INSTALL_DIR}/labuh.db?mode=rwc|" "$INSTALL_DIR/.env"
+        sed -i "s|FRONTEND_DIR=.*|FRONTEND_DIR=${INSTALL_DIR}/frontend/build|" "$INSTALL_DIR/.env"
         chown "$LABUH_USER:$LABUH_USER" "$INSTALL_DIR/.env"
         chmod 600 "$INSTALL_DIR/.env"
     fi
 
-    # Create Caddyfile if not exists or if it is a directory
-    if [[ -d "$INSTALL_DIR/Caddyfile" ]]; then
-        echo -e "${YELLOW}Warning: Caddyfile is a directory, removing...${NC}"
-        rm -rf "$INSTALL_DIR/Caddyfile"
-    fi
-
+    # Caddy
     if [[ ! -f "$INSTALL_DIR/Caddyfile" ]] || [[ ! -s "$INSTALL_DIR/Caddyfile" ]]; then
-        cat > "$INSTALL_DIR/Caddyfile" << EOF
-{
-    admin 0.0.0.0:2019
-}
-
-:80 {
-    handle /api/* {
-        reverse_proxy labuh:3000
-    }
-
-    handle {
-        reverse_proxy labuh:3000
-    }
-}
-EOF
-        chown "$LABUH_USER:$LABUH_USER" "$INSTALL_DIR/Caddyfile"
+        echo -e "${YELLOW}Downloading default Caddyfile...${NC}"
+        curl -fsSL "${RAW_URL}/deploy/Caddyfile" -o "$INSTALL_DIR/Caddyfile"
     fi
 
-    # Create systemd service file
-    cat > /etc/systemd/system/labuh.service << EOF
-[Unit]
-Description=Labuh PaaS Platform
-After=network.target docker.service containerd.service
-Wants=docker.service
+    # Service
+    echo -e "${YELLOW}Configuring systemd service...${NC}"
+    curl -fsSL "${RAW_URL}/deploy/labuh.service" -o /etc/systemd/system/labuh.service
+    if [[ "$INSTALL_DIR" != "/opt/labuh" ]]; then
+        sed -i "s|/opt/labuh|${INSTALL_DIR}|g" /etc/systemd/system/labuh.service
+    fi
 
-[Service]
-Type=simple
-User=$LABUH_USER
-Group=$LABUH_USER
-WorkingDirectory=$INSTALL_DIR
-EnvironmentFile=$INSTALL_DIR/.env
-ExecStart=$INSTALL_DIR/labuh
-Restart=always
-RestartSec=5
-
-# Security hardening
-NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=$INSTALL_DIR
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    # Set ownership
     chown -R "$LABUH_USER:$LABUH_USER" "$INSTALL_DIR"
-
-    # Reload and enable service
     systemctl daemon-reload
     systemctl enable labuh
-
-    echo -e "${GREEN}✓ Systemd service configured${NC}"
+    echo -e "${GREEN}✓ Systemd service and components configured${NC}"
 }
 
-# Main installation flow
 main() {
     detect_os
     detect_arch
+    check_existing
+
     install_dependencies
-
-    echo ""
-    echo "Checking container runtime..."
     ensure_runtime
-
-    # Install Labuh
     install_labuh
-
-    # Setup systemd
     setup_systemd
 
     echo ""

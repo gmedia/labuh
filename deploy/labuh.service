@@ -18,9 +18,9 @@ Restart=always
 RestartSec=5
 
 # Security hardening
-NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=true
+NoNewPrivileges=false
+ProtectSystem=full
+ProtectHome=read-only
 ReadWritePaths=/opt/labuh
 PrivateTmp=true
 
