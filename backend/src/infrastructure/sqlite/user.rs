@@ -52,4 +52,11 @@ impl UserRepository for SqliteUserRepository {
 
         Ok(user)
     }
+
+    async fn count_users(&self) -> Result<i64> {
+        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users")
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(row.0)
+    }
 }

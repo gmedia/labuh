@@ -374,10 +374,15 @@ impl StackUsecase {
                     .map(|d| d.placement.constraints.clone())
                     .unwrap_or_default();
 
+                let mut networks = service.networks.clone();
+                if !networks.contains(&"labuh-network".to_string()) {
+                    networks.push("labuh-network".to_string());
+                }
+
                 let svc_config = crate::domain::runtime::ServiceConfig {
                     name: swarm_service_name,
                     image: config.image.clone(),
-                    networks: service.networks.clone(),
+                    networks,
                     env: config.env.clone().unwrap_or_default(),
                     replicas,
                     labels: config.labels.clone().unwrap_or_default(),

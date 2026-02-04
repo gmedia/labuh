@@ -1,52 +1,52 @@
-# Swarm & Clusters
+# Swarm & Cluster
 
-Labuh v0.4.2 menghadirkan dukungan native untuk **Docker Swarm**, memungkinkan Anda mengelola cluster dari banyak server (node) langsung dari satu dashboard.
+Labuh v0.4.3 menghadirkan dukungan native untuk **Docker Swarm**, memungkinkan Anda mengelola cluster dari banyak server (node) langsung dari satu dashboard.
 
-## Swarm Overview
+## Ringkasan Swarm
 
-Docker Swarm turns a pool of Docker hosts into a single virtual server. Labuh integrates seamlessly with Swarm to provide:
+Docker Swarm mengubah kumpulan host Docker menjadi satu server virtual tunggal. Labuh terintegrasi mulus dengan Swarm untuk menyediakan:
 
-- **Multi-Node Deployment**: Deploy stacks across multiple servers.
-- **High Availability**: Services can be replicated across nodes.
-- **Unified Management**: Manage Managers and Workers from one UI.
+- **Deployment Multi-Node**: Deploy stack di berbagai server sekaligus.
+- **High Availability**: Service dapat direplikasi di berbagai node untuk ketahanan sistem.
+- **Manajemen Terpusat**: Kelola Manager dan Worker dari satu antarmuka pengguna.
 
-## Initializing Swarm
+## Inisialisasi Swarm
 
-If your server isn't part of a Swarm yet, you can initialize it directly from Labuh:
+Jika server Anda belum menjadi bagian dari Swarm, Anda dapat menginisialisasinya langsung dari Labuh:
 
-1. Go to **Nodes** sidebar menu.
-2. Click **Initialize Swarm**.
-3. Labuh will configure the current server as the first **Manager** node.
+1. Pergi ke menu sidebar **Nodes**.
+2. Klik **Initialize Swarm**.
+3. Labuh akan mengkonfigurasi server saat ini sebagai node **Manager** utama.
 
-## Node Management
+## Manajemen Node
 
-Once Swarm is active, the **Nodes** page becomes your cluster command center.
+Setelah Swarm aktif, halaman **Nodes** menjadi pusat kendali cluster Anda.
 
-### Joining Nodes
+### Menambahkan Node
 
-To add more servers to your cluster:
+Untuk menambahkan lebih banyak server ke cluster Anda:
 
-1. Click **Join Token** on the Manager node.
-2. Copy the **Worker Token** (or Manager Token).
-3. On the new server (which must have Docker installed), run the provided `docker swarm join` command OR use the Labuh interface if Labuh is installed there too.
+1. Klik **Join Token** pada node Manager.
+2. Salin **Worker Token** (atau Manager Token).
+3. Di server baru (yang harus sudah terinstal Docker), jalankan perintah `docker swarm join` yang diberikan ATAU gunakan antarmuka Labuh jika Labuh juga terinstal di sana.
 
-### Promoting & Demoting
+### Promosi & Demosi Node
 
-- **Promote to Manager**: Gives a Worker node administrative powers.
-- **Demote to Worker**: Strips administrative powers (useful for maintenance).
+- **Promote to Manager**: Memberikan hak administratif pada node Worker.
+- **Demote to Worker**: Mencabut hak administratif (berguna untuk pemeliharaan).
 
-You can perform these actions by clicking the **...** (Options) button on any node card.
+Anda dapat melakukan tindakan ini dengan mengklik tombol **...** (Opsi) pada setiap kartu node.
 
 ### Terminal & Monitoring
 
 - **Node Terminal**: Akses shell host server langsung dari browser menggunakan ikon terminal di setiap kartu node. Sangat berguna untuk maintenance server jarak jauh.
 - **Resource Monitoring**: Pantau kapasitas CPU, RAM, dan Disk dari setiap node secara real-time.
 
-## Network Visualization
+## Visualisasi Jaringan
 
 Labuh menyediakan **Network Visualizer** yang powerful untuk membantu Anda memahami topologi jaringan di dalam cluster.
 
 - **Interactive Graph**: Lihat bagaimana container terhubung ke network dan container lainnya.
-- **Real-time Status**: Node berwarna menunjukkan kesehatan service Anda.
+- **Real-time Status**: Warna pada node menunjukkan kesehatan service Anda.
 
 Akses visualizer melalui menu **Networks** di sidebar dashboard.

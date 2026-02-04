@@ -14,6 +14,7 @@ pub struct DomainUsecase {
     stack_repo: Arc<dyn StackRepository>,
     caddy_client: Arc<CaddyClient>,
     dns_usecase: Arc<DnsUsecase>,
+    runtime: Arc<dyn crate::domain::runtime::RuntimePort>,
     tunnel_manager: Option<Arc<TunnelManager>>,
 }
 
@@ -37,6 +38,7 @@ impl DomainUsecase {
         stack_repo: Arc<dyn StackRepository>,
         caddy_client: Arc<CaddyClient>,
         dns_usecase: Arc<DnsUsecase>,
+        runtime: Arc<dyn crate::domain::runtime::RuntimePort>,
         tunnel_manager: Option<Arc<TunnelManager>>,
     ) -> Self {
         Self {
@@ -44,6 +46,7 @@ impl DomainUsecase {
             stack_repo,
             caddy_client,
             dns_usecase,
+            runtime,
             tunnel_manager,
         }
     }
@@ -197,8 +200,8 @@ impl DomainUsecase {
 
         // Add route to Caddy if it's a Caddy type domain
         if matches!(request.domain_type, DomainType::Caddy) {
-            let container_upstream =
-                format!("{}:{}", request.container_name, request.container_port);
+            let upstream_name = self.resolve_upstream(&request.container_name).await;
+            let container_upstream = format!("{}:{}", upstream_name, request.container_port);
             if let Err(e) = self
                 .caddy_client
                 .add_route(&request.domain, &container_upstream)
@@ -330,8 +333,8 @@ impl DomainUsecase {
         let domains = self.domain_repo.list_all().await?;
         for domain in domains {
             if matches!(domain.r#type, DomainType::Caddy) {
-                let container_upstream =
-                    format!("{}:{}", domain.container_name, domain.container_port);
+                let upstream_name = self.resolve_upstream(&domain.container_name).await;
+                let container_upstream = format!("{}:{}", upstream_name, domain.container_port);
                 let _ = self
                     .caddy_client
                     .add_route(&domain.domain, &container_upstream)
@@ -346,8 +349,8 @@ impl DomainUsecase {
         for domain in domains {
             // 1. Sync Caddy
             if matches!(domain.r#type, DomainType::Caddy) {
-                let container_upstream =
-                    format!("{}:{}", domain.container_name, domain.container_port);
+                let upstream_name = self.resolve_upstream(&domain.container_name).await;
+                let container_upstream = format!("{}:{}", upstream_name, domain.container_port);
                 let _ = self
                     .caddy_client
                     .add_route(&domain.domain, &container_upstream)
@@ -447,6 +450,28 @@ impl DomainUsecase {
         }
 
         Ok(())
+    }
+
+    async fn resolve_upstream(&self, container_name: &str) -> String {
+        let mut upstream_name = container_name.to_string();
+
+        // Try to find if this container is part of a swarm service
+        if let Ok(containers) = self.runtime.list_containers(true).await
+            && let Some(container) = containers.iter().find(|c| {
+                c.names.iter().any(|n| n.contains(container_name))
+                    || c.id.starts_with(container_name)
+            })
+            && let Some(service_name) = container.labels.get("com.docker.swarm.service.name")
+        {
+            tracing::debug!(
+                "Detected Swarm service '{}' for container '{}'. Using service VIP for routing.",
+                service_name,
+                container_name
+            );
+            upstream_name = service_name.clone();
+        }
+
+        upstream_name
     }
 }
 

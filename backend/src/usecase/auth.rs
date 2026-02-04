@@ -19,7 +19,15 @@ impl AuthUsecase {
     }
 
     pub async fn register(&self, input: CreateUser) -> Result<AuthResponse> {
-        // Check if user already exists
+        // Only allow registration if no users exist (initial setup)
+        let user_count = self.repo.count_users().await?;
+        if user_count > 0 {
+            return Err(AppError::Forbidden(
+                "Public registration is disabled. Please contact your administrator.".to_string(),
+            ));
+        }
+
+        // Check if user already exists (shouldn't happen if count == 0, but safety first)
         if self.repo.find_by_email(&input.email).await?.is_some() {
             return Err(AppError::Conflict("Email already registered".to_string()));
         }
@@ -36,7 +44,7 @@ impl AuthUsecase {
             email: input.email,
             password_hash,
             name: input.name,
-            role: "user".to_string(), // Default role
+            role: "admin".to_string(), // First user is always admin
             created_at: now.clone(),
             updated_at: now,
         };
@@ -83,5 +91,10 @@ impl AuthUsecase {
 
     pub fn verify_token(&self, token: &str) -> Result<crate::infrastructure::auth::jwt::Claims> {
         self.jwt_service.verify_token(token)
+    }
+
+    pub async fn is_setup_required(&self) -> Result<bool> {
+        let count = self.repo.count_users().await?;
+        Ok(count == 0)
     }
 }

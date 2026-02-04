@@ -5,7 +5,17 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+
 	let ctrl = $state(new AuthController());
+
+	onMount(async () => {
+		await ctrl.checkSetup();
+		if (ctrl.setupRequired === false) {
+			goto('/login');
+		}
+	});
 </script>
 
 <div class="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-muted/50 p-4">
@@ -14,8 +24,14 @@
 			<div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl overflow-hidden shadow-lg border">
 				<img src="/logo.png" alt="Labuh Logo" class="h-12 w-12 object-contain" />
 			</div>
-			<Card.Title class="text-2xl font-bold">Create an Account</Card.Title>
-			<Card.Description>Get started with Labuh today</Card.Description>
+			<Card.Title class="text-2xl font-bold">
+				{ctrl.setupRequired ? 'Setup Administrator' : 'Create an Account'}
+			</Card.Title>
+			<Card.Description>
+				{ctrl.setupRequired
+					? 'Configure the first administrator account for Labuh'
+					: 'Get started with Labuh today'}
+			</Card.Description>
 		</Card.Header>
 		<Card.Content>
 			<form onsubmit={(e) => ctrl.register(e)} class="space-y-4">
@@ -69,7 +85,7 @@
 				</div>
 
 				<Button type="submit" class="w-full" disabled={ctrl.loading}>
-					{ctrl.loading ? 'Creating account...' : 'Create Account'}
+					{ctrl.loading ? 'Creating account...' : (ctrl.setupRequired ? 'Complete Setup' : 'Create Account')}
 				</Button>
 			</form>
 		</Card.Content>

@@ -26,6 +26,11 @@ async fn login(
     Ok(Json(response))
 }
 
+async fn setup_required(State(auth_usecase): State<Arc<AuthUsecase>>) -> Result<Json<bool>> {
+    let required = auth_usecase.is_setup_required().await?;
+    Ok(Json(required))
+}
+
 async fn me(Extension(current_user): Extension<CurrentUser>) -> Result<Json<UserResponse>> {
     Ok(Json(UserResponse {
         id: current_user.id,
@@ -40,6 +45,7 @@ pub fn auth_routes(auth_usecase: Arc<AuthUsecase>) -> Router {
     Router::new()
         .route("/register", post(register))
         .route("/login", post(login))
+        .route("/setup-required", get(setup_required))
         .with_state(auth_usecase)
 }
 

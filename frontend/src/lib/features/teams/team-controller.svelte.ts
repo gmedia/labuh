@@ -16,7 +16,9 @@ export class TeamController {
 
   selectedTeamMembers = $state<TeamMember[]>([]);
   loadingMembers = $state(false);
+  inviteName = $state("");
   inviteEmail = $state("");
+  invitePassword = $state("");
   inviteRole = $state<TeamRole>("Developer");
   inviting = $state(false);
 
@@ -90,7 +92,7 @@ export class TeamController {
 
   async loadMembers(teamId: string) {
     this.loadingMembers = true;
-    const result = await api.teams.listMembers(teamId);
+    const result = await api.teams.getMembers(teamId);
     if (result.data) {
       this.selectedTeamMembers = result.data;
     }
@@ -98,16 +100,22 @@ export class TeamController {
   }
 
   async inviteMember(teamId: string) {
-    if (!this.inviteEmail) return;
+    if (!this.inviteEmail || !this.inviteName || !this.invitePassword) {
+      toast.error("Please fill in all fields (Name, Email, Password)");
+      return;
+    }
     this.inviting = true;
-    const result = await api.teams.addMember(
-      teamId,
-      this.inviteEmail,
-      this.inviteRole,
-    );
+    const result = await api.teams.addMember(teamId, {
+      name: this.inviteName,
+      email: this.inviteEmail,
+      password: this.invitePassword,
+      role: this.inviteRole,
+    });
     if (!result.error) {
       toast.success(`Invited ${this.inviteEmail}`);
+      this.inviteName = "";
       this.inviteEmail = "";
+      this.invitePassword = "";
       await this.loadMembers(teamId);
     } else {
       toast.error(result.message || result.error);

@@ -8,11 +8,18 @@ use crate::error::{AppError, Result};
 
 pub struct TeamUsecase {
     team_repo: Arc<dyn TeamRepository>,
+    user_repo: Arc<dyn crate::domain::user_repository::UserRepository>,
 }
 
 impl TeamUsecase {
-    pub fn new(team_repo: Arc<dyn TeamRepository>) -> Self {
-        Self { team_repo }
+    pub fn new(
+        team_repo: Arc<dyn TeamRepository>,
+        user_repo: Arc<dyn crate::domain::user_repository::UserRepository>,
+    ) -> Self {
+        Self {
+            team_repo,
+            user_repo,
+        }
     }
 
     pub async fn create_team(&self, name: &str, owner_id: &str) -> Result<Team> {
@@ -59,6 +66,7 @@ impl TeamUsecase {
         Ok(responses)
     }
 
+    #[allow(dead_code)]
     pub async fn add_member(
         &self,
         team_id: &str,
@@ -70,6 +78,45 @@ impl TeamUsecase {
             .await?;
 
         self.team_repo.add_member(team_id, user_id, role).await?;
+        Ok(())
+    }
+
+    pub async fn add_member_with_credentials(
+        &self,
+        team_id: &str,
+        name: &str,
+        email: &str,
+        password: &str,
+        role: TeamRole,
+        actor_id: &str,
+    ) -> Result<()> {
+        self.verify_permission(team_id, actor_id, TeamRole::Admin)
+            .await?;
+
+        // 1. Check if user already exists
+        let user = if let Some(existing_user) = self.user_repo.find_by_email(email).await? {
+            existing_user
+        } else {
+            // 2. Create new user if not exists
+            let id = Uuid::new_v4().to_string();
+            let now = Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+            let password_hash =
+                crate::infrastructure::auth::password::PasswordService::hash_password(password)?;
+
+            let new_user = crate::domain::models::User {
+                id,
+                email: email.to_string(),
+                password_hash,
+                name: Some(name.to_string()),
+                role: "user".to_string(),
+                created_at: now.clone(),
+                updated_at: now,
+            };
+            self.user_repo.create(new_user).await?
+        };
+
+        // 3. Add to team
+        self.team_repo.add_member(team_id, &user.id, role).await?;
         Ok(())
     }
 
