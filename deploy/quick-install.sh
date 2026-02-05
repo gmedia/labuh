@@ -88,7 +88,7 @@ detect_os() {
         ubuntu|pop|mint|neon) DOCKER_OS="ubuntu" ;;
         debian|kali|raspbian) DOCKER_OS="debian" ;;
         fedora) DOCKER_OS="fedora" ;;
-        centos|rhel|rocky) DOCKER_OS="centos" ;;
+        centos|rhel|rocky|almalinux) DOCKER_OS="rhel" ;;
         *)
             if [[ "$ID_LIKE" == *"ubuntu"* ]]; then DOCKER_OS="ubuntu"
             elif [[ "$ID_LIKE" == *"debian"* ]]; then DOCKER_OS="debian"
@@ -120,7 +120,7 @@ install_dependencies() {
             apt-get update
             apt-get install -y openssl curl ca-certificates tar gzip gnupg2 lsb-release
             ;;
-        fedora|rhel|centos|rocky)
+        fedora|rhel|centos|rocky|almalinux)
             dnf install -y openssl curl ca-certificates tar gzip gnupg2
             ;;
         *)
@@ -148,9 +148,19 @@ install_docker() {
             apt-get update
             apt-get install -y docker-ce docker-ce-cli containerd.io
             ;;
-        fedora|rhel|centos|rocky)
+        fedora)
             dnf -y install dnf-plugins-core
-            dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+            dnf config-manager addrepo --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo
+            dnf install -y docker-ce docker-ce-cli containerd.io
+            ;;
+        centos)
+            dnf -y install dnf-plugins-core
+            dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+            dnf install -y docker-ce docker-ce-cli containerd.io
+            ;;
+        rhel|rocky|almalinux)
+            dnf -y install dnf-plugins-core
+            dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
             dnf install -y docker-ce docker-ce-cli containerd.io
             ;;
     esac
