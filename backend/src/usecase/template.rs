@@ -54,8 +54,7 @@ impl TemplateUsecase {
         }
 
         // Load templates from JSON files in template directory
-        let template_dir =
-            std::env::var("TEMPLATE_DIR").unwrap_or_else(|_| "template".to_string());
+        let template_dir = std::env::var("TEMPLATE_DIR").unwrap_or_else(|_| "template".to_string());
 
         let entries = match std::fs::read_dir(&template_dir) {
             Ok(entries) => entries,
