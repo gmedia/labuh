@@ -150,6 +150,13 @@ impl TeamUsecase {
         role: TeamRole,
         actor_id: &str,
     ) -> Result<()> {
+        // Cannot change your own role
+        if user_id == actor_id {
+            return Err(AppError::BadRequest(
+                "Cannot change your own role".to_string(),
+            ));
+        }
+
         self.verify_permission(team_id, actor_id, TeamRole::Admin)
             .await?;
 
@@ -163,6 +170,38 @@ impl TeamUsecase {
         if target_role == TeamRole::Owner {
             return Err(AppError::BadRequest(
                 "Cannot change the role of the team owner".to_string(),
+            ));
+        }
+
+        // Get actor's role
+        let actor_role = self
+            .team_repo
+            .get_user_role(team_id, actor_id)
+            .await?
+            .ok_or(AppError::Forbidden("Access denied".to_string()))?;
+
+        let role_priority = |r: TeamRole| match r {
+            TeamRole::Owner => 4,
+            TeamRole::Admin => 3,
+            TeamRole::Developer => 2,
+            TeamRole::Viewer => 1,
+        };
+
+        // Cannot assign role equal or higher than your own (except Owner can do anything)
+        if actor_role != TeamRole::Owner
+            && role_priority(role.clone()) >= role_priority(actor_role.clone())
+        {
+            return Err(AppError::Forbidden(
+                "Cannot assign a role equal to or higher than your own".to_string(),
+            ));
+        }
+
+        // Cannot modify someone with equal or higher role (except Owner)
+        if actor_role != TeamRole::Owner
+            && role_priority(target_role.clone()) >= role_priority(actor_role)
+        {
+            return Err(AppError::Forbidden(
+                "Cannot modify a member with equal or higher role".to_string(),
             ));
         }
 
