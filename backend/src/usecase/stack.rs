@@ -5,8 +5,8 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::domain::compose::{parse_compose, service_to_container_request};
-use crate::domain::models::*;
 use crate::domain::models::TeamRole;
+use crate::domain::models::*;
 use crate::domain::resource_repository::ResourceRepository;
 use crate::domain::runtime::RuntimePort;
 use crate::domain::stack_repository::StackRepository;
