@@ -380,11 +380,8 @@ impl StackUsecase {
                 .await?;
 
             if is_swarm {
-                // === SWARM MODE: Create Service ===
+                // === SWARM MODE: Update/Create Service with Rolling Update ===
                 let swarm_service_name = format!("{}_{}", stack.name, service.name);
-
-                // Cleanup old service if exists
-                let _ = self.runtime.remove_service(&swarm_service_name).await;
 
                 // Extract replicas from compose or default to 1
                 let replicas = service
@@ -406,7 +403,7 @@ impl StackUsecase {
                 }
 
                 let svc_config = crate::domain::runtime::ServiceConfig {
-                    name: swarm_service_name,
+                    name: swarm_service_name.clone(),
                     image: config.image.clone(),
                     networks,
                     env: config.env.clone().unwrap_or_default(),
@@ -418,7 +415,19 @@ impl StackUsecase {
                     constraints,
                 };
 
-                self.runtime.create_service(svc_config).await?;
+                // Check if service already exists
+                if let Ok(Some(_)) = self.runtime.inspect_service(&swarm_service_name).await {
+                    // Service exists - perform rolling update (zero-downtime)
+                    tracing::info!(
+                        "Updating existing service {} with rolling update",
+                        swarm_service_name
+                    );
+                    self.runtime.update_service(svc_config).await?;
+                } else {
+                    // Service doesn't exist - create new
+                    tracing::info!("Creating new service {}", swarm_service_name);
+                    self.runtime.create_service(svc_config).await?;
+                }
             } else {
                 // === STANDALONE MODE: Create Container ===
                 let containers = self.get_stack_containers(&stack.id).await?;
@@ -579,11 +588,26 @@ impl StackUsecase {
         let stack = self.get_stack(id, user_id).await?;
         self.verify_permission(&stack.team_id, user_id, TeamRole::Developer)
             .await?;
-        let containers = self.get_stack_containers(&stack.id).await?;
 
-        for container in containers {
-            let _ = self.runtime.stop_container(&container.id).await;
-            let _ = self.runtime.remove_container(&container.id, true).await;
+        let is_swarm = self.runtime.is_swarm_enabled().await.unwrap_or(false);
+
+        if is_swarm {
+            // Cleanup Swarm services
+            if let Some(compose_content) = &stack.compose_content
+                && let Ok(parsed) = parse_compose(compose_content)
+            {
+                for service in parsed.services {
+                    let swarm_service_name = format!("{}_{}", stack.name, service.name);
+                    let _ = self.runtime.remove_service(&swarm_service_name).await;
+                }
+            }
+        } else {
+            // Cleanup standalone containers
+            let containers = self.get_stack_containers(&stack.id).await?;
+            for container in containers {
+                let _ = self.runtime.stop_container(&container.id).await;
+                let _ = self.runtime.remove_container(&container.id, true).await;
+            }
         }
 
         self.repo.delete(id).await?;

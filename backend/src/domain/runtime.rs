@@ -47,6 +47,8 @@ pub trait RuntimePort: Send + Sync {
     // Swarm Service Management
     async fn create_service(&self, config: ServiceConfig) -> Result<String>;
     async fn remove_service(&self, id_or_name: &str) -> Result<()>;
+    async fn update_service(&self, config: ServiceConfig) -> Result<()>;
+    async fn inspect_service(&self, name: &str) -> Result<Option<ServiceInfo>>;
     async fn update_service_scale(&self, service_name: &str, replicas: u64) -> Result<()>;
 }
 
@@ -62,6 +64,15 @@ pub struct ServiceConfig {
     pub cpu_limit: Option<f64>,
     pub memory_limit: Option<i64>,
     pub constraints: Vec<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ServiceInfo {
+    pub id: String,
+    pub name: String,
+    pub image: String,
+    pub replicas: u64,
+    pub version: u64,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

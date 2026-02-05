@@ -19,7 +19,7 @@ use std::sync::Arc;
 
 use crate::domain::runtime::{
     ContainerConfig, ContainerInfo, ContainerPort, EndpointInfo, NetworkInfo, RuntimePort,
-    ServiceConfig,
+    ServiceConfig, ServiceInfo,
 };
 use crate::error::{AppError, Result};
 
@@ -1058,6 +1058,183 @@ impl RuntimePort for DockerRuntimeAdapter {
             .delete_service(id_or_name)
             .await
             .map_err(|e| AppError::ContainerRuntime(e.to_string()))?;
+        Ok(())
+    }
+
+    async fn inspect_service(&self, name: &str) -> Result<Option<ServiceInfo>> {
+        match self.docker.inspect_service(name, None).await {
+            Ok(service) => {
+                let version = service.version.and_then(|v| v.index).unwrap_or(0);
+
+                let spec = service.spec.unwrap_or_default();
+                let replicas = spec
+                    .mode
+                    .and_then(|m| m.replicated)
+                    .and_then(|r| r.replicas)
+                    .unwrap_or(1) as u64;
+
+                let image = spec
+                    .task_template
+                    .and_then(|t| t.container_spec)
+                    .and_then(|c| c.image)
+                    .unwrap_or_default();
+
+                Ok(Some(ServiceInfo {
+                    id: service.id.unwrap_or_default(),
+                    name: name.to_string(),
+                    image,
+                    replicas,
+                    version,
+                }))
+            }
+            Err(e) => {
+                // If service not found, return None
+                if e.to_string().contains("not found") || e.to_string().contains("no such service")
+                {
+                    Ok(None)
+                } else {
+                    Err(AppError::ContainerRuntime(e.to_string()))
+                }
+            }
+        }
+    }
+
+    async fn update_service(&self, config: ServiceConfig) -> Result<()> {
+        // 1. Inspect current service to get version
+        let service = self
+            .docker
+            .inspect_service(&config.name, None)
+            .await
+            .map_err(|e: bollard::errors::Error| AppError::ContainerRuntime(e.to_string()))?;
+
+        let service_id = service
+            .id
+            .ok_or_else(|| AppError::Internal("Service ID missing".to_string()))?;
+        let version = service
+            .version
+            .and_then(|v| v.index)
+            .ok_or_else(|| AppError::Internal("Service version missing".to_string()))?;
+
+        // 2. Build new spec (same logic as create_service)
+        let mut labels = config.labels.clone();
+        labels.insert("labuh.managed".to_string(), "true".to_string());
+
+        let networks: Vec<NetworkAttachmentConfig> = config
+            .networks
+            .iter()
+            .map(|n| NetworkAttachmentConfig {
+                target: Some(n.clone()),
+                ..Default::default()
+            })
+            .collect();
+
+        let resources = if config.cpu_limit.is_some() || config.memory_limit.is_some() {
+            Some(TaskSpecResources {
+                limits: Some(Limit {
+                    nano_cpus: config.cpu_limit.map(|c| (c * 1e9) as i64),
+                    memory_bytes: config.memory_limit,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })
+        } else {
+            None
+        };
+
+        let placement = if !config.constraints.is_empty() {
+            Some(bollard::models::TaskSpecPlacement {
+                constraints: Some(config.constraints.clone()),
+                ..Default::default()
+            })
+        } else {
+            None
+        };
+
+        let task_spec = TaskSpec {
+            container_spec: Some(TaskSpecContainerSpec {
+                image: Some(config.image),
+                env: if config.env.is_empty() {
+                    None
+                } else {
+                    Some(config.env)
+                },
+                labels: Some(labels.clone()),
+                ..Default::default()
+            }),
+            networks: if networks.is_empty() {
+                None
+            } else {
+                Some(networks)
+            },
+            resources,
+            placement,
+            force_update: Some(1), // Force update for rolling deploy
+            ..Default::default()
+        };
+
+        let endpoint_spec = if !config.ports.is_empty() {
+            let ports: Vec<EndpointPortConfig> = config
+                .ports
+                .iter()
+                .filter_map(|p| {
+                    let parts: Vec<&str> = p.split(':').collect();
+                    if parts.len() == 2 {
+                        let published = parts[0].parse::<i64>().ok();
+                        let target = parts[1].parse::<i64>().ok();
+                        Some(EndpointPortConfig {
+                            protocol: Some(bollard::models::EndpointPortConfigProtocolEnum::TCP),
+                            published_port: published,
+                            target_port: target,
+                            publish_mode: Some(
+                                bollard::models::EndpointPortConfigPublishModeEnum::INGRESS,
+                            ),
+                            ..Default::default()
+                        })
+                    } else if parts.len() == 1 {
+                        let target = parts[0].parse::<i64>().ok();
+                        Some(EndpointPortConfig {
+                            target_port: target,
+                            ..Default::default()
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            Some(EndpointSpec {
+                mode: Some(bollard::models::EndpointSpecModeEnum::VIP),
+                ports: Some(ports),
+            })
+        } else {
+            None
+        };
+
+        let spec = ServiceSpec {
+            name: Some(config.name),
+            labels: Some(labels),
+            task_template: Some(task_spec),
+            mode: Some(ServiceSpecMode {
+                replicated: Some(ServiceSpecModeReplicated {
+                    replicas: Some(config.replicas as i64),
+                }),
+                ..Default::default()
+            }),
+            endpoint_spec,
+            ..Default::default()
+        };
+
+        // 3. Update the service
+        let options = UpdateServiceOptions {
+            version: version as i32,
+            ..Default::default()
+        };
+
+        self.docker
+            .update_service(&service_id, spec, options, None)
+            .await
+            .map_err(|e: bollard::errors::Error| AppError::ContainerRuntime(e.to_string()))?;
+
         Ok(())
     }
 
