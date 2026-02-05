@@ -74,7 +74,14 @@ if [[ -d "${TMP_DIR}/frontend" ]]; then
     cp -r "${TMP_DIR}/frontend" "$INSTALL_DIR/"
 fi
 
-chown -R "$LABUH_USER:$LABUH_USER" "$INSTALL_DIR/labuh" "$INSTALL_DIR/migrations" "$INSTALL_DIR/frontend" 2>/dev/null || true
+# Update templates
+if [[ -d "${TMP_DIR}/template" ]]; then
+    echo -e "${YELLOW}Updating default templates...${NC}"
+    rm -rf "$INSTALL_DIR/template"
+    cp -r "${TMP_DIR}/template" "$INSTALL_DIR/"
+fi
+
+chown -R "$LABUH_USER:$LABUH_USER" "$INSTALL_DIR/labuh" "$INSTALL_DIR/migrations" "$INSTALL_DIR/frontend" "$INSTALL_DIR/template" 2>/dev/null || true
 
 echo -e "${YELLOW}Updating helper scripts and service configuration...${NC}"
 curl -fsSL "${RAW_URL}/deploy/backup.sh" -o "$INSTALL_DIR/backup.sh"

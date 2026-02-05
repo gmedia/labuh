@@ -1,0 +1,8 @@
+{
+  "id": "redis",
+  "name": "Redis",
+  "description": "In-memory data structure store, used as a database, cache, and message broker.",
+  "icon": "database",
+  "compose_content": "version: '3.8'\nservices:\n  redis:\n    image: redis:alpine\n    ports:\n      - \"6379:6379\"\n    restart: always",
+  "default_env": []
+}

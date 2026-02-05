@@ -1,0 +1,8 @@
+{
+  "id": "ghost",
+  "name": "Ghost",
+  "description": "A professional open source publishing platform.",
+  "icon": "file-text",
+  "compose_content": "version: '3.8'\nservices:\n  ghost:\n    image: ghost:latest\n    restart: always\n    ports:\n      - \"2368:2368\"\n    environment:\n      url: http://localhost:2368\n      database__client: sqlite3",
+  "default_env": []
+}

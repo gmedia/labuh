@@ -1,5 +1,5 @@
 use crate::domain::TemplateRepository;
-use crate::domain::models::{Template, TemplateEnv, TemplateResponse};
+use crate::domain::models::{Template, TemplateResponse};
 use crate::error::{AppError, Result};
 use std::sync::Arc;
 
@@ -53,93 +53,41 @@ impl TemplateUsecase {
             return Ok(());
         }
 
-        let defaults = vec![
-            Template {
-                id: "wordpress".to_string(),
-                name: "WordPress".to_string(),
-                description: "The world's most popular website builder.".to_string(),
-                icon: "globe".to_string(),
-                compose_content: r#"version: '3.8'
-services:
-  db:
-    image: mysql:8.0
-    volumes:
-      - db_data:/var/lib/mysql
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: wordpress
-      MYSQL_USER: wordpress
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+        // Load templates from JSON files in template directory
+        let template_dir = std::env::var("TEMPLATE_DIR").unwrap_or_else(|_| "template".to_string());
 
-  wordpress:
-    depends_on:
-      - db
-    image: wordpress:latest
-    ports:
-      - "8080:80"
-    restart: always
-    environment:
-      WORDPRESS_DB_HOST: db
-      WORDPRESS_DB_USER: wordpress
-      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}
-      WORDPRESS_DB_NAME: wordpress
+        let entries = match std::fs::read_dir(&template_dir) {
+            Ok(entries) => entries,
+            Err(e) => {
+                tracing::warn!(
+                    "Could not read template directory '{}': {}. Skipping template seeding.",
+                    template_dir,
+                    e
+                );
+                return Ok(());
+            }
+        };
 
-volumes:
-  db_data: {}"#
-                    .to_string(),
-                default_env: vec![
-                    TemplateEnv {
-                        key: "MYSQL_ROOT_PASSWORD".to_string(),
-                        value: "somewordpress".to_string(),
-                        description: Some("Root password for MySQL".to_string()),
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().map(|e| e == "json").unwrap_or(false) {
+                match std::fs::read_to_string(&path) {
+                    Ok(content) => match serde_json::from_str::<Template>(&content) {
+                        Ok(template) => {
+                            tracing::info!("Loading template: {} from {:?}", template.name, path);
+                            if let Err(e) = self.repo.save(&template).await {
+                                tracing::warn!("Failed to save template {}: {}", template.id, e);
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!("Failed to parse template JSON {:?}: {}", path, e);
+                        }
                     },
-                    TemplateEnv {
-                        key: "MYSQL_PASSWORD".to_string(),
-                        value: "wordpress".to_string(),
-                        description: Some("Database password for WordPress".to_string()),
-                    },
-                ],
-            },
-            Template {
-                id: "ghost".to_string(),
-                name: "Ghost".to_string(),
-                description: "A professional open source publishing platform.".to_string(),
-                icon: "file-text".to_string(),
-                compose_content: r#"version: '3.8'
-services:
-  ghost:
-    image: ghost:latest
-    restart: always
-    ports:
-      - "2368:2368"
-    environment:
-      url: http://localhost:2368
-      database__client: sqlite3"#
-                    .to_string(),
-                default_env: vec![],
-            },
-            Template {
-                id: "redis".to_string(),
-                name: "Redis".to_string(),
-                description:
-                    "In-memory data structure store, used as a database, cache, and message broker."
-                        .to_string(),
-                icon: "database".to_string(),
-                compose_content: r#"version: '3.8'
-services:
-  redis:
-    image: redis:alpine
-    ports:
-      - "6379:6379"
-    restart: always"#
-                    .to_string(),
-                default_env: vec![],
-            },
-        ];
-
-        for t in defaults {
-            self.repo.save(&t).await?;
+                    Err(e) => {
+                        tracing::warn!("Failed to read template file {:?}: {}", path, e);
+                    }
+                }
+            }
         }
 
         Ok(())

@@ -225,6 +225,7 @@ setup_systemd() {
         sed -i "s|JWT_SECRET=.*|JWT_SECRET=${JWT_SECRET}|" "$INSTALL_DIR/.env"
         sed -i "s|DATABASE_URL=.*|DATABASE_URL=sqlite:${INSTALL_DIR}/labuh.db?mode=rwc|" "$INSTALL_DIR/.env"
         sed -i "s|FRONTEND_DIR=.*|FRONTEND_DIR=${INSTALL_DIR}/frontend/build|" "$INSTALL_DIR/.env"
+        sed -i "s|TEMPLATE_DIR=.*|TEMPLATE_DIR=${INSTALL_DIR}/template|" "$INSTALL_DIR/.env"
         chown "$LABUH_USER:$LABUH_USER" "$INSTALL_DIR/.env"
         chmod 600 "$INSTALL_DIR/.env"
     fi

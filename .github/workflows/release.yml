@@ -62,6 +62,7 @@ jobs:
           mkdir -p dist/frontend
           cp -r frontend/build dist/frontend/
           cp -r deploy dist/
+          cp -r template dist/ 2>/dev/null || true
           cd dist && tar -czvf ../labuh-linux-x86_64.tar.gz *
 
       - name: Upload artifact
@@ -117,6 +118,7 @@ jobs:
           mkdir -p dist/frontend
           cp -r frontend/build dist/frontend/
           cp -r deploy dist/
+          cp -r template dist/ 2>/dev/null || true
           cd dist && tar -czvf ../labuh-linux-aarch64.tar.gz *
 
       - name: Upload artifact

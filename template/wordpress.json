@@ -1,0 +1,19 @@
+{
+  "id": "wordpress",
+  "name": "WordPress",
+  "description": "The world's most popular website builder.",
+  "icon": "globe",
+  "compose_content": "version: '3.8'\nservices:\n  db:\n    image: mysql:8.0\n    volumes:\n      - db_data:/var/lib/mysql\n    restart: always\n    environment:\n      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}\n      MYSQL_DATABASE: wordpress\n      MYSQL_USER: wordpress\n      MYSQL_PASSWORD: ${MYSQL_PASSWORD}\n\n  wordpress:\n    depends_on:\n      - db\n    image: wordpress:latest\n    ports:\n      - \"8080:80\"\n    restart: always\n    environment:\n      WORDPRESS_DB_HOST: db\n      WORDPRESS_DB_USER: wordpress\n      WORDPRESS_DB_PASSWORD: ${MYSQL_PASSWORD}\n      WORDPRESS_DB_NAME: wordpress\n\nvolumes:\n  db_data: {}",
+  "default_env": [
+    {
+      "key": "MYSQL_ROOT_PASSWORD",
+      "value": "somewordpress",
+      "description": "Root password for MySQL"
+    },
+    {
+      "key": "MYSQL_PASSWORD",
+      "value": "wordpress",
+      "description": "Database password for WordPress"
+    }
+  ]
+}
