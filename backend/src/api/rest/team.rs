@@ -1,7 +1,7 @@
 use axum::{
     Json, Router,
     extract::{Path, State},
-    routing::{delete, get},
+    routing::{delete, get, put},
 };
 use std::sync::Arc;
 
@@ -24,10 +24,8 @@ pub fn team_routes(usecase: Arc<TeamUsecase>) -> Router {
         .route("/", get(list_teams).post(create_team))
         .route("/{id}", delete(remove_team))
         .route("/{id}/members", get(get_members).post(add_member))
-        .route(
-            "/{id}/members/{user_id}",
-            delete(remove_member).put(update_member_role),
-        )
+        .route("/{id}/members/{user_id}", delete(remove_member))
+        .route("/{id}/members/{user_id}/role", put(update_member_role))
         .with_state(usecase)
 }
 

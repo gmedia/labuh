@@ -3,10 +3,10 @@
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
   import { Shield, UserPlus, Star, Trash2, Users } from '@lucide/svelte';
-  import { activeTeam } from '$lib/stores';
+  import { activeTeam, auth } from '$lib/stores';
   import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte';
   import type { TeamController } from '../team-controller.svelte';
-  import type { TeamRole } from '$lib/api';
+  import type { TeamRole, TeamMember } from '$lib/api';
 
   let { ctrl = $bindable() } = $props<{ ctrl: TeamController }>();
 
@@ -15,6 +15,48 @@
       ctrl.loadMembers($activeTeam.team.id);
     }
   });
+
+  const rolePriority = (role: TeamRole): number => {
+    switch (role) {
+      case 'Owner': return 4;
+      case 'Admin': return 3;
+      case 'Developer': return 2;
+      case 'Viewer': return 1;
+      default: return 0;
+    }
+  };
+
+  const canModifyMember = (member: TeamMember): boolean => {
+    if (!$activeTeam?.role) return false;
+    const myRole = $activeTeam.role;
+    const targetRole = member.role as TeamRole;
+
+    // Cannot modify yourself
+    if ($auth.user?.id === member.user_id) return false;
+
+    // Cannot modify Owner
+    if (targetRole === 'Owner') return false;
+
+    // Owner can modify everyone except other owners
+    if (myRole === 'Owner') return true;
+
+    // Can only modify members with lower priority role
+    return rolePriority(myRole) > rolePriority(targetRole);
+  };
+
+  const getAssignableRoles = (): TeamRole[] => {
+    if (!$activeTeam?.role) return [];
+    const myRole = $activeTeam.role;
+
+    // Owner can assign any role except Owner
+    if (myRole === 'Owner') {
+      return ['Admin', 'Developer', 'Viewer'];
+    }
+
+    // Others can only assign roles below their own
+    const myPriority = rolePriority(myRole);
+    return ctrl.roles.filter((r: TeamRole) => r !== 'Owner' && rolePriority(r) < myPriority);
+  };
 </script>
 
 <Card.Root>
@@ -105,14 +147,15 @@
                 </div>
 
                 <div class="flex items-center gap-3">
-                  {#if ($activeTeam.role === 'Owner' || $activeTeam.role === 'Admin') && member.role !== 'Owner'}
+                  {#if canModifyMember(member)}
                     <select
                       value={member.role}
                       onchange={(e) => ctrl.updateRole($activeTeam.team!.id, member.user_id, e.currentTarget.value as TeamRole)}
                       class="text-xs bg-transparent border-none focus:ring-0 cursor-pointer font-medium hover:text-primary transition-colors"
                     >
-                      {#each ctrl.roles as r}
-                        {#if r !== 'Owner' || $activeTeam.role === 'Owner'}
+                      <option value={member.role}>{member.role}</option>
+                      {#each getAssignableRoles() as r}
+                        {#if r !== member.role}
                           <option value={r}>{r}</option>
                         {/if}
                       {/each}
