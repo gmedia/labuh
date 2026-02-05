@@ -5,6 +5,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::domain::compose::{parse_compose, service_to_container_request};
+use crate::domain::models::TeamRole;
 use crate::domain::models::*;
 use crate::domain::resource_repository::ResourceRepository;
 use crate::domain::runtime::RuntimePort;
@@ -56,6 +57,35 @@ impl StackUsecase {
         self.runtime.clone()
     }
 
+    /// Verify user has required role for the team
+    async fn verify_permission(
+        &self,
+        team_id: &str,
+        user_id: &str,
+        required_role: TeamRole,
+    ) -> Result<()> {
+        let role = self
+            .team_repo
+            .get_user_role(team_id, user_id)
+            .await?
+            .ok_or(AppError::Forbidden("Access denied".to_string()))?;
+
+        let role_priority = |r: TeamRole| match r {
+            TeamRole::Owner => 4,
+            TeamRole::Admin => 3,
+            TeamRole::Developer => 2,
+            TeamRole::Viewer => 1,
+        };
+
+        if role_priority(role) < role_priority(required_role) {
+            return Err(AppError::Forbidden(
+                "Insufficient permissions for this operation".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
     pub async fn list_stacks(&self, user_id: &str) -> Result<Vec<Stack>> {
         let teams = self.team_repo.find_by_user_id(user_id).await?;
         let mut all_stacks = Vec::new();
@@ -100,11 +130,8 @@ impl StackUsecase {
         user_id: &str,
         team_id: &str,
     ) -> Result<Stack> {
-        let _role = self
-            .team_repo
-            .get_user_role(team_id, user_id)
-            .await?
-            .ok_or(AppError::Forbidden("Access denied".to_string()))?;
+        self.verify_permission(team_id, user_id, TeamRole::Developer)
+            .await?;
 
         let id = Uuid::new_v4().to_string();
         let now = Utc::now().to_rfc3339();
@@ -150,11 +177,8 @@ impl StackUsecase {
         user_id: &str,
         team_id: &str,
     ) -> Result<Stack> {
-        let _role = self
-            .team_repo
-            .get_user_role(team_id, user_id)
-            .await?
-            .ok_or(AppError::Forbidden("Access denied".to_string()))?;
+        self.verify_permission(team_id, user_id, TeamRole::Developer)
+            .await?;
 
         // 1. Setup git directory
         let id = Uuid::new_v4().to_string();
@@ -212,6 +236,8 @@ impl StackUsecase {
 
     pub async fn sync_git(&self, id: &str, user_id: &str) -> Result<()> {
         let stack = self.get_stack(id, user_id).await?;
+        self.verify_permission(&stack.team_id, user_id, TeamRole::Developer)
+            .await?;
         let git_url = stack
             .git_url
             .clone()
@@ -411,6 +437,8 @@ impl StackUsecase {
 
     pub async fn start_stack(&self, id: &str, user_id: &str) -> Result<()> {
         let stack = self.get_stack(id, user_id).await?;
+        self.verify_permission(&stack.team_id, user_id, TeamRole::Developer)
+            .await?;
         let containers = self.get_stack_containers(&stack.id).await?;
 
         for container in containers {
@@ -425,6 +453,8 @@ impl StackUsecase {
 
     pub async fn stop_stack(&self, id: &str, user_id: &str) -> Result<()> {
         let stack = self.get_stack(id, user_id).await?;
+        self.verify_permission(&stack.team_id, user_id, TeamRole::Developer)
+            .await?;
         let containers = self.get_stack_containers(&stack.id).await?;
 
         for container in containers {
@@ -478,6 +508,8 @@ impl StackUsecase {
 
     pub async fn build_stack(&self, id: &str, user_id: &str) -> Result<()> {
         let stack = self.get_stack(id, user_id).await?;
+        self.verify_permission(&stack.team_id, user_id, TeamRole::Developer)
+            .await?;
         let compose_content = stack.compose_content.clone().ok_or_else(|| {
             crate::error::AppError::BadRequest("Stack has no compose content".to_string())
         })?;
@@ -508,6 +540,8 @@ impl StackUsecase {
 
     pub async fn build_service(&self, id: &str, service_name: &str, user_id: &str) -> Result<()> {
         let stack = self.get_stack(id, user_id).await?;
+        self.verify_permission(&stack.team_id, user_id, TeamRole::Developer)
+            .await?;
         let compose_content = stack.compose_content.clone().ok_or_else(|| {
             crate::error::AppError::BadRequest("Stack has no compose content".to_string())
         })?;
@@ -543,6 +577,8 @@ impl StackUsecase {
 
     pub async fn remove_stack(&self, id: &str, user_id: &str) -> Result<()> {
         let stack = self.get_stack(id, user_id).await?;
+        self.verify_permission(&stack.team_id, user_id, TeamRole::Developer)
+            .await?;
         let containers = self.get_stack_containers(&stack.id).await?;
 
         for container in containers {
@@ -641,7 +677,9 @@ impl StackUsecase {
         compose_content: &str,
         user_id: &str,
     ) -> Result<()> {
-        let _stack = self.get_stack(id, user_id).await?;
+        let stack = self.get_stack(id, user_id).await?;
+        self.verify_permission(&stack.team_id, user_id, TeamRole::Developer)
+            .await?;
         parse_compose(compose_content)?;
         self.repo.update_compose(id, compose_content).await?;
 
@@ -696,7 +734,9 @@ impl StackUsecase {
     }
 
     pub async fn regenerate_webhook_token(&self, id: &str, user_id: &str) -> Result<String> {
-        let _stack = self.get_stack(id, user_id).await?;
+        let stack = self.get_stack(id, user_id).await?;
+        self.verify_permission(&stack.team_id, user_id, TeamRole::Developer)
+            .await?;
         let token: String = Alphanumeric.sample_string(&mut rand::rng(), 32);
         self.repo.update_webhook_token(id, &token).await?;
         Ok(token)
@@ -710,7 +750,9 @@ impl StackUsecase {
         health_path: Option<String>,
         health_interval: i32,
     ) -> Result<()> {
-        let _stack = self.get_stack(id, user_id).await?;
+        let stack = self.get_stack(id, user_id).await?;
+        self.verify_permission(&stack.team_id, user_id, TeamRole::Developer)
+            .await?;
         self.repo
             .update_automation(id, cron, health_path, health_interval)
             .await?;

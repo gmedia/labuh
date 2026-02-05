@@ -1,6 +1,6 @@
 # Swarm & Cluster
 
-Labuh v0.4.3 menghadirkan dukungan native untuk **Docker Swarm**, memungkinkan Anda mengelola cluster dari banyak server (node) langsung dari satu dashboard.
+Labuh v0.4.4 menghadirkan dukungan native untuk **Docker Swarm**, memungkinkan Anda mengelola cluster dari banyak server (node) langsung dari satu dashboard.
 
 ## Ringkasan Swarm
 

@@ -15,7 +15,7 @@ Jika Anda menggunakan perangkat seperti TV Box dengan Armbian, berikut adalah ti
 
 ### 1. Penanganan Konfigurasi Caddy
 
-Pada beberapa filesystem di perangkat ARM, mount Docker terhadap file yang belum ada bisa memicu pembuatan folder kosong. Labuh v0.4.3+ telah dilengkapi fitur **Auto-Repair**:
+Pada beberapa filesystem di perangkat ARM, mount Docker terhadap file yang belum ada bisa memicu pembuatan folder kosong. Labuh v0.4.4+ telah dilengkapi fitur **Auto-Repair**:
 
 - Secara otomatis mendeteksi dan memperbaiki `Caddyfile` yang rusak atau terdeteksi sebagai direktori.
 - Menginisialisasi konfigurasi default secara mandiri jika file tidak ditemukan.

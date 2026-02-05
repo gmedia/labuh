@@ -3,7 +3,7 @@ use chrono::Utc;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::domain::models::{RegistryCredential, RegistryCredentialResponse};
+use crate::domain::models::{RegistryCredential, RegistryCredentialResponse, TeamRole};
 use crate::domain::registry_repository::RegistryRepository;
 use crate::error::{AppError, Result};
 
@@ -20,17 +20,42 @@ impl RegistryUsecase {
         Self { repo, team_repo }
     }
 
+    /// Verify user has required role for the team
+    async fn verify_permission(
+        &self,
+        team_id: &str,
+        user_id: &str,
+        required_role: TeamRole,
+    ) -> Result<()> {
+        let role = self
+            .team_repo
+            .get_user_role(team_id, user_id)
+            .await?
+            .ok_or(AppError::Forbidden("Access denied".to_string()))?;
+
+        let role_priority = |r: TeamRole| match r {
+            TeamRole::Owner => 4,
+            TeamRole::Admin => 3,
+            TeamRole::Developer => 2,
+            TeamRole::Viewer => 1,
+        };
+
+        if role_priority(role) < role_priority(required_role) {
+            return Err(AppError::Forbidden(
+                "Insufficient permissions for this operation".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
     pub async fn list_credentials(
         &self,
         team_id: &str,
         user_id: &str,
     ) -> Result<Vec<RegistryCredentialResponse>> {
-        // Verify team membership
-        let _role = self
-            .team_repo
-            .get_user_role(team_id, user_id)
-            .await?
-            .ok_or(AppError::Forbidden("Access denied".to_string()))?;
+        self.verify_permission(team_id, user_id, TeamRole::Viewer)
+            .await?;
 
         let creds = self.repo.list_by_team(team_id).await?;
         Ok(creds.into_iter().map(Into::into).collect())
@@ -45,12 +70,8 @@ impl RegistryUsecase {
         username: &str,
         password: &str,
     ) -> Result<RegistryCredentialResponse> {
-        // Verify team membership
-        let _role = self
-            .team_repo
-            .get_user_role(team_id, user_id)
-            .await?
-            .ok_or(AppError::Forbidden("Access denied".to_string()))?;
+        self.verify_permission(team_id, user_id, TeamRole::Admin)
+            .await?;
 
         let id = Uuid::new_v4().to_string();
         let now = Utc::now().to_rfc3339();
@@ -73,12 +94,8 @@ impl RegistryUsecase {
     }
 
     pub async fn remove_credential(&self, id: &str, team_id: &str, user_id: &str) -> Result<()> {
-        // Verify team membership
-        let _role = self
-            .team_repo
-            .get_user_role(team_id, user_id)
-            .await?
-            .ok_or(AppError::Forbidden("Access denied".to_string()))?;
+        self.verify_permission(team_id, user_id, TeamRole::Admin)
+            .await?;
 
         self.repo.delete(id, team_id).await
     }
