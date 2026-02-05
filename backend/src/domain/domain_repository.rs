@@ -12,4 +12,5 @@ pub trait DomainRepository: Send + Sync {
     async fn delete(&self, id: &str) -> Result<()>;
     async fn update_verification(&self, domain: &str, verified: bool) -> Result<()>;
     async fn update_dns_record_id(&self, id: &str, dns_record_id: &str) -> Result<()>;
+    async fn update_branding(&self, domain: &str, show_branding: bool) -> Result<()>;
 }

@@ -56,7 +56,7 @@ impl DomainRepository for SqliteDomainRepository {
 
     async fn create(&self, domain: Domain) -> Result<Domain> {
         sqlx::query(
-            "INSERT INTO domains (id, stack_id, container_name, container_port, domain, ssl_enabled, verified, provider, type, tunnel_id, dns_record_id, proxied, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO domains (id, stack_id, container_name, container_port, domain, ssl_enabled, verified, provider, type, tunnel_id, dns_record_id, proxied, show_branding, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )
         .bind(&domain.id)
         .bind(&domain.stack_id)
@@ -70,6 +70,7 @@ impl DomainRepository for SqliteDomainRepository {
         .bind(&domain.tunnel_id)
         .bind(&domain.dns_record_id)
         .bind(domain.proxied)
+        .bind(domain.show_branding)
         .bind(&domain.created_at)
         .execute(&self.pool)
         .await?;
@@ -98,6 +99,15 @@ impl DomainRepository for SqliteDomainRepository {
         sqlx::query("UPDATE domains SET dns_record_id = ? WHERE id = ?")
             .bind(dns_record_id)
             .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    async fn update_branding(&self, domain: &str, show_branding: bool) -> Result<()> {
+        sqlx::query("UPDATE domains SET show_branding = ? WHERE domain = ?")
+            .bind(show_branding)
+            .bind(domain)
             .execute(&self.pool)
             .await?;
         Ok(())

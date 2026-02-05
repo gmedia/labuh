@@ -35,6 +35,7 @@ pub trait RuntimePort: Send + Sync {
     async fn ensure_network(&self, name: &str) -> Result<()>;
     async fn connect_network(&self, container: &str, network: &str) -> Result<()>;
     async fn list_networks(&self) -> Result<Vec<NetworkInfo>>;
+    async fn migrate_network_to_overlay(&self, name: &str) -> Result<()>;
 
     // Swarm Management
     async fn is_swarm_enabled(&self) -> Result<bool>;

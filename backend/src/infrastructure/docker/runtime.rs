@@ -752,6 +752,88 @@ impl RuntimePort for DockerRuntimeAdapter {
             .collect())
     }
 
+    async fn migrate_network_to_overlay(&self, name: &str) -> Result<()> {
+        // Check if network exists and its driver
+        match self.docker.inspect_network(name, None).await {
+            Ok(network) => {
+                let driver = network.driver.unwrap_or_default();
+                if driver == "overlay" {
+                    tracing::info!("Network {} is already overlay, no migration needed", name);
+                    return Ok(());
+                }
+
+                tracing::info!(
+                    "Migrating network {} from {} to overlay for Swarm compatibility",
+                    name,
+                    driver
+                );
+
+                // Disconnect all containers from the network first
+                if let Some(containers) = network.containers {
+                    for (container_id, _) in containers {
+                        tracing::debug!(
+                            "Disconnecting container {} from network {}",
+                            container_id,
+                            name
+                        );
+                        let disconnect_config = bollard::models::NetworkDisconnectRequest {
+                            container: container_id.clone(),
+                            force: Some(true),
+                        };
+                        let _ = self
+                            .docker
+                            .disconnect_network(name, disconnect_config)
+                            .await;
+                    }
+                }
+
+                // Remove the old network
+                if let Err(e) = self.docker.remove_network(name).await {
+                    tracing::warn!("Failed to remove old network {}: {}", name, e);
+                    // If we can't remove, try to proceed anyway
+                }
+
+                // Create new overlay network
+                let config = NetworkCreateRequest {
+                    name: name.to_string(),
+                    internal: Some(false),
+                    attachable: Some(true),
+                    driver: Some("overlay".to_string()),
+                    ..Default::default()
+                };
+
+                self.docker.create_network(config).await.map_err(|e| {
+                    AppError::ContainerRuntime(format!(
+                        "Failed to create overlay network {}: {}",
+                        name, e
+                    ))
+                })?;
+
+                tracing::info!("Successfully migrated network {} to overlay", name);
+                Ok(())
+            }
+            Err(_) => {
+                // Network doesn't exist, create as overlay
+                tracing::info!("Network {} doesn't exist, creating as overlay", name);
+                let config = NetworkCreateRequest {
+                    name: name.to_string(),
+                    internal: Some(false),
+                    attachable: Some(true),
+                    driver: Some("overlay".to_string()),
+                    ..Default::default()
+                };
+
+                self.docker.create_network(config).await.map_err(|e| {
+                    AppError::ContainerRuntime(format!(
+                        "Failed to create overlay network {}: {}",
+                        name, e
+                    ))
+                })?;
+                Ok(())
+            }
+        }
+    }
+
     async fn is_swarm_enabled(&self) -> Result<bool> {
         let info = self
             .docker

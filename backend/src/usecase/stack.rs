@@ -227,10 +227,8 @@ impl StackUsecase {
 
         // Save user-provided environment variables
         if let Some(vars) = env_vars {
-            let env_list: Vec<(String, String, bool)> = vars
-                .into_iter()
-                .map(|(k, v)| (k, v, false))
-                .collect();
+            let env_list: Vec<(String, String, bool)> =
+                vars.into_iter().map(|(k, v)| (k, v, false)).collect();
             let _ = self.environment_usecase.bulk_set(&id, "", env_list).await;
         }
 

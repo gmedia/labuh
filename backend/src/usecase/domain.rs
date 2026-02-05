@@ -188,6 +188,7 @@ impl DomainUsecase {
             tunnel_id: resolved_tunnel_id,
             dns_record_id: dns_record_id.clone(),
             proxied: request.proxied,
+            show_branding: true,
             created_at: now,
         };
 
@@ -204,7 +205,11 @@ impl DomainUsecase {
             let container_upstream = format!("{}:{}", upstream_name, request.container_port);
             if let Err(e) = self
                 .caddy_client
-                .add_route(&request.domain, &container_upstream)
+                .add_route(
+                    &request.domain,
+                    &container_upstream,
+                    domain_record.show_branding,
+                )
                 .await
             {
                 // Rollback DNS and DB
@@ -337,7 +342,7 @@ impl DomainUsecase {
                 let container_upstream = format!("{}:{}", upstream_name, domain.container_port);
                 let _ = self
                     .caddy_client
-                    .add_route(&domain.domain, &container_upstream)
+                    .add_route(&domain.domain, &container_upstream, domain.show_branding)
                     .await;
             }
         }
@@ -353,7 +358,7 @@ impl DomainUsecase {
                 let container_upstream = format!("{}:{}", upstream_name, domain.container_port);
                 let _ = self
                     .caddy_client
-                    .add_route(&domain.domain, &container_upstream)
+                    .add_route(&domain.domain, &container_upstream, domain.show_branding)
                     .await;
             }
 
@@ -472,6 +477,42 @@ impl DomainUsecase {
         }
 
         upstream_name
+    }
+
+    pub async fn toggle_branding(
+        &self,
+        stack_id: &str,
+        domain: &str,
+        show_branding: bool,
+    ) -> Result<()> {
+        // Find domain and verify ownership
+        let domain_record = self
+            .domain_repo
+            .find_by_domain(domain)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Domain not found".to_string()))?;
+
+        if domain_record.stack_id != stack_id {
+            return Err(AppError::Forbidden(
+                "You do not have permission to modify this domain".to_string(),
+            ));
+        }
+
+        // Update database
+        self.domain_repo
+            .update_branding(domain, show_branding)
+            .await?;
+
+        // Re-sync Caddy route with new branding setting
+        if matches!(domain_record.r#type, DomainType::Caddy) {
+            let upstream_name = self.resolve_upstream(&domain_record.container_name).await;
+            let container_upstream = format!("{}:{}", upstream_name, domain_record.container_port);
+            self.caddy_client
+                .add_route(domain, &container_upstream, show_branding)
+                .await?;
+        }
+
+        Ok(())
     }
 }
 

@@ -24,7 +24,31 @@ impl NodeUsecase {
     }
 
     pub async fn init_swarm(&self, listen_addr: &str) -> Result<String> {
-        self.runtime.swarm_init(listen_addr).await
+        let token = self.runtime.swarm_init(listen_addr).await?;
+
+        // After swarm init, migrate labuh-network to overlay for compatibility
+        tracing::info!("Swarm initialized, migrating labuh-network to overlay...");
+        if let Err(e) = self
+            .runtime
+            .migrate_network_to_overlay("labuh-network")
+            .await
+        {
+            tracing::warn!(
+                "Failed to migrate labuh-network to overlay: {}. You may need to manually recreate it.",
+                e
+            );
+        }
+
+        // Reconnect Caddy to the new network
+        if let Err(e) = self
+            .runtime
+            .connect_network("labuh-caddy", "labuh-network")
+            .await
+        {
+            tracing::warn!("Failed to reconnect Caddy to labuh-network: {}", e);
+        }
+
+        Ok(token)
     }
 
     pub async fn join_swarm(
@@ -35,7 +59,31 @@ impl NodeUsecase {
     ) -> Result<()> {
         self.runtime
             .swarm_join(listen_addr, remote_addr, token)
+            .await?;
+
+        // After joining swarm, migrate labuh-network to overlay for compatibility
+        tracing::info!("Joined swarm, migrating labuh-network to overlay...");
+        if let Err(e) = self
+            .runtime
+            .migrate_network_to_overlay("labuh-network")
             .await
+        {
+            tracing::warn!(
+                "Failed to migrate labuh-network to overlay: {}. You may need to manually recreate it.",
+                e
+            );
+        }
+
+        // Reconnect Caddy to the new network
+        if let Err(e) = self
+            .runtime
+            .connect_network("labuh-caddy", "labuh-network")
+            .await
+        {
+            tracing::warn!("Failed to reconnect Caddy to labuh-network: {}", e);
+        }
+
+        Ok(())
     }
 
     pub async fn get_tokens(&self) -> Result<SwarmTokens> {

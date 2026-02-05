@@ -81,7 +81,6 @@ pub enum ComposeEnvironment {
     Map(HashMap<String, serde_yaml::Value>),
 }
 
-
 #[derive(Debug, Deserialize, Default)]
 pub struct ComposeNetwork {}
 

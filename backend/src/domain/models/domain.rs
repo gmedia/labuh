@@ -31,6 +31,7 @@ pub struct Domain {
     pub tunnel_id: Option<String>,
     pub dns_record_id: Option<String>,
     pub proxied: bool,
+    pub show_branding: bool,
     pub created_at: String,
 }
 
@@ -62,6 +63,7 @@ pub struct DomainResponse {
     pub tunnel_id: Option<String>,
     pub dns_record_id: Option<String>,
     pub proxied: bool,
+    pub show_branding: bool,
     pub created_at: String,
 }
 
@@ -80,6 +82,7 @@ impl From<Domain> for DomainResponse {
             tunnel_id: d.tunnel_id,
             dns_record_id: d.dns_record_id,
             proxied: d.proxied,
+            show_branding: d.show_branding,
             created_at: d.created_at,
         }
     }

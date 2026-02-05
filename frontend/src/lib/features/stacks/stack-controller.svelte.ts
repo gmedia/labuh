@@ -381,6 +381,22 @@ export class StackController {
     await this.loadDomains();
   }
 
+  async toggleBranding(domain: string, showBranding: boolean) {
+    const result = await api.stacks.domains.toggleBranding(
+      this.id,
+      domain,
+      showBranding,
+    );
+    if (result.error) {
+      toast.error(result.message || result.error);
+    } else {
+      toast.success(
+        `Labuh badge ${showBranding ? "enabled" : "disabled"} for ${domain}`,
+      );
+      await this.loadDomains();
+    }
+  }
+
   async saveAutomation(payload: {
     cron_schedule: string;
     health_check_path: string;

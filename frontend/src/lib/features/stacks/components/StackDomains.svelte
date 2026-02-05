@@ -85,7 +85,18 @@
                     </span>
                 </div>
                 </div>
-                <div class="flex gap-1">
+                <div class="flex items-center gap-1">
+                {#if domain.type === 'Caddy' && !isViewer}
+                    <label class="flex items-center gap-1 cursor-pointer px-2 py-1 rounded hover:bg-muted/50 transition-colors" title="Toggle Labuh badge">
+                        <input
+                            type="checkbox"
+                            checked={domain.show_branding}
+                            onchange={() => ctrl.toggleBranding(domain.domain, !domain.show_branding)}
+                            class="w-3.5 h-3.5 rounded border-muted-foreground/50 text-primary focus:ring-primary/50"
+                        />
+                        <span class="text-[10px] text-muted-foreground font-medium">Badge</span>
+                    </label>
+                {/if}
                 {#if !isViewer}
                     <Button variant="ghost" size="icon" class="h-8 w-8 text-destructive hover:bg-destructive/10" onclick={() => ctrl.requestRemoveDomain(domain.domain)} title="Remove attachment">
                     <Trash2 class="h-4 w-4" />

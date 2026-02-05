@@ -173,6 +173,34 @@ async fn sync_domains(
     Ok(Json(serde_json::json!({ "status": "synchronized" })))
 }
 
+#[derive(Deserialize)]
+pub struct UpdateBrandingRequest {
+    pub show_branding: bool,
+}
+
+async fn toggle_branding(
+    State(state): State<Arc<AppState>>,
+    Extension(current_user): Extension<CurrentUser>,
+    Path((stack_id, domain)): Path<(String, String)>,
+    Json(request): Json<UpdateBrandingRequest>,
+) -> Result<Json<serde_json::Value>> {
+    let stack_uc = state.stack_usecase.as_ref().ok_or(AppError::Internal(
+        "Stack usecase not available".to_string(),
+    ))?;
+    let domain_uc = state.domain_usecase.as_ref().ok_or(AppError::Internal(
+        "Domain usecase not available".to_string(),
+    ))?;
+
+    stack_uc.get_stack(&stack_id, &current_user.id).await?;
+    domain_uc
+        .toggle_branding(&stack_id, &domain, request.show_branding)
+        .await?;
+
+    Ok(Json(
+        serde_json::json!({ "status": "updated", "show_branding": request.show_branding }),
+    ))
+}
+
 pub fn domain_routes(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/domains", get(list_all_domains))
@@ -183,6 +211,10 @@ pub fn domain_routes(state: Arc<AppState>) -> Router {
         .route(
             "/{stack_id}/domains/{domain}/dns",
             axum::routing::put(update_dns),
+        )
+        .route(
+            "/{stack_id}/domains/{domain}/branding",
+            axum::routing::put(toggle_branding),
         )
         .route("/domains/sync", post(sync_domains))
         .with_state(state)
