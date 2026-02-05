@@ -1,0 +1,13 @@
+{
+    admin 0.0.0.0:2019
+}
+
+:80 {
+    handle /api/* {
+        reverse_proxy labuh:3000
+    }
+
+    handle {
+        reverse_proxy labuh:3000
+    }
+}
