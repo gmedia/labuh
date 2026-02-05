@@ -9,3 +9,4 @@ dist
 labuh.db
 .env
 Caddyfile
+!deploy/**
