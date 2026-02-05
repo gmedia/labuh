@@ -168,6 +168,7 @@ impl StackUsecase {
         self.get_stack(&id, user_id).await
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_stack_from_git(
         &self,
         name: &str,
@@ -176,6 +177,7 @@ impl StackUsecase {
         compose_path: &str,
         user_id: &str,
         team_id: &str,
+        env_vars: Option<std::collections::HashMap<String, String>>,
     ) -> Result<Stack> {
         self.verify_permission(team_id, user_id, TeamRole::Developer)
             .await?;
@@ -222,6 +224,15 @@ impl StackUsecase {
         };
 
         self.repo.create(stack.clone()).await?;
+
+        // Save user-provided environment variables
+        if let Some(vars) = env_vars {
+            let env_list: Vec<(String, String, bool)> = vars
+                .into_iter()
+                .map(|(k, v)| (k, v, false))
+                .collect();
+            let _ = self.environment_usecase.bulk_set(&id, "", env_list).await;
+        }
 
         // Sync config from YAML to DB
         let _ = self.sync_compose_to_db(&id).await;

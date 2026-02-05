@@ -95,6 +95,17 @@ services:
                 <Input id="composePath" placeholder="docker-compose.yml" bind:value={ctrl.gitStack.composePath} />
               </div>
             </div>
+            <div class="space-y-2">
+              <Label for="envContent">Environment Variables <span class="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+              <Textarea
+                id="envContent"
+                placeholder={"# Paste your .env file content here\nDB_HOST=localhost\nDB_PORT=3306\nAPP_KEY=your-secret-key"}
+                bind:value={ctrl.gitStack.envContent}
+                rows={5}
+                class="font-mono text-sm"
+              />
+              <p class="text-xs text-muted-foreground">Paste your <code>.env</code> file content. Lines starting with # are ignored.</p>
+            </div>
           </div>
         {/if}
       </div>

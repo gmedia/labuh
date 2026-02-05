@@ -197,6 +197,7 @@ export interface CreateStackFromGit {
   git_url: string;
   git_branch: string;
   compose_path: string;
+  env_vars?: Record<string, string>;
 }
 
 export type DomainProvider = "Custom" | "Cloudflare" | "CPanel";

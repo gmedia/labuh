@@ -278,6 +278,7 @@ struct CreateStackFromGit {
     git_url: String,
     git_branch: String,
     compose_path: String,
+    env_vars: Option<std::collections::HashMap<String, String>>,
 }
 
 async fn create_stack_from_git(
@@ -293,6 +294,7 @@ async fn create_stack_from_git(
             &request.compose_path,
             &current_user.id,
             &request.team_id,
+            request.env_vars,
         )
         .await?;
     Ok(Json(stack.into()))

@@ -78,8 +78,9 @@ pub enum ComposeEnvironment {
     #[default]
     Empty,
     List(Vec<String>),
-    Map(HashMap<String, Option<String>>),
+    Map(HashMap<String, serde_yaml::Value>),
 }
+
 
 #[derive(Debug, Deserialize, Default)]
 pub struct ComposeNetwork {}
@@ -240,8 +241,15 @@ pub fn parse_compose(yaml_content: &str) -> Result<ParsedCompose> {
             ComposeEnvironment::List(list) => list,
             ComposeEnvironment::Map(map) => map
                 .into_iter()
-                .filter_map(|(k, v): (String, Option<String>)| {
-                    v.map(|val| format!("{}={}", k, val))
+                .filter_map(|(k, v)| {
+                    let val_str = match v {
+                        serde_yaml::Value::Null => return None,
+                        serde_yaml::Value::Bool(b) => b.to_string(),
+                        serde_yaml::Value::Number(n) => n.to_string(),
+                        serde_yaml::Value::String(s) => s,
+                        _ => return None, // Skip complex types
+                    };
+                    Some(format!("{}={}", k, val_str))
                 })
                 .collect(),
         };

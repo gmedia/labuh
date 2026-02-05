@@ -17,6 +17,7 @@ export class StackListController {
     url: "",
     branch: "main",
     composePath: "docker-compose.yml",
+    envContent: "",
   });
 
   // UI States
@@ -73,12 +74,28 @@ export class StackListController {
           this.creating = false;
           return;
         }
+        // Parse .env content into key-value pairs
+        const envVars: Record<string, string> = {};
+        if (this.gitStack.envContent.trim()) {
+          for (const line of this.gitStack.envContent.split("\n")) {
+            const trimmed = line.trim();
+            if (trimmed && !trimmed.startsWith("#")) {
+              const eqIdx = trimmed.indexOf("=");
+              if (eqIdx > 0) {
+                const key = trimmed.substring(0, eqIdx).trim();
+                const value = trimmed.substring(eqIdx + 1).trim();
+                envVars[key] = value;
+              }
+            }
+          }
+        }
         result = await api.stacks.createFromGit({
           name: this.newStack.name,
           team_id: team.id,
           git_url: this.gitStack.url,
           git_branch: this.gitStack.branch,
           compose_path: this.gitStack.composePath,
+          env_vars: Object.keys(envVars).length > 0 ? envVars : undefined,
         });
       }
 
@@ -89,6 +106,7 @@ export class StackListController {
           url: "",
           branch: "main",
           composePath: "docker-compose.yml",
+          envContent: "",
         };
         await this.loadStacks();
       } else {
