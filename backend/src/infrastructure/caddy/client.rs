@@ -4,6 +4,10 @@ use std::sync::Arc;
 use crate::domain::runtime::{ContainerConfig, RuntimePort};
 use crate::error::{AppError, Result};
 
+/// Version tag for Caddy container - increment to force re-creation
+const CADDY_CONTAINER_VERSION: &str = "v2";
+const LABUH_NETWORK: &str = "labuh-network";
+
 /// Caddy Admin API client for dynamic configuration
 pub struct CaddyClient {
     admin_api_url: String,
@@ -51,9 +55,12 @@ impl CaddyClient {
         }
     }
 
-    /// Ensure Caddy container is running
+    /// Ensure Caddy container is running with correct configuration
     pub async fn bootstrap(&self, runtime: &Arc<dyn RuntimePort>) -> Result<()> {
         let container_name = "labuh-caddy";
+
+        // Ensure labuh-network exists
+        runtime.ensure_network(LABUH_NETWORK).await?;
 
         // Check if running
         let containers = runtime.list_containers(true).await?;
@@ -62,12 +69,24 @@ impl CaddyClient {
             .find(|c| c.names.iter().any(|n| n.contains(container_name)));
 
         if let Some(c) = existing {
-            if c.state == "running" {
-                let _info = runtime.inspect_container(&c.id).await?;
-                return Ok(());
-            }
+            // Check version label to determine if we need to recreate
+            let needs_upgrade = !c
+                .labels
+                .get("labuh.caddy.version")
+                .map(|v| v == CADDY_CONTAINER_VERSION)
+                .unwrap_or(false);
 
-            if c.state != "running" {
+            if needs_upgrade {
+                tracing::info!(
+                    "Upgrading Caddy container to {}...",
+                    CADDY_CONTAINER_VERSION
+                );
+                let _ = runtime.stop_container(&c.id).await;
+                let _ = runtime.remove_container(&c.id, true).await;
+                // Fall through to create new container
+            } else if c.state == "running" {
+                return Ok(());
+            } else {
                 tracing::info!("Starting existing Caddy container...");
                 runtime.start_container(&c.id).await?;
                 return Ok(());
@@ -130,6 +149,14 @@ impl CaddyClient {
             "caddy_config:/config".to_string(),
         ];
 
+        let mut labels = std::collections::HashMap::new();
+        labels.insert("labuh.managed".to_string(), "true".to_string());
+        labels.insert("labuh.service".to_string(), "caddy".to_string());
+        labels.insert(
+            "labuh.caddy.version".to_string(),
+            CADDY_CONTAINER_VERSION.to_string(),
+        );
+
         let config = ContainerConfig {
             name: container_name.to_string(),
             image: image.to_string(),
@@ -137,10 +164,10 @@ impl CaddyClient {
             volumes: Some(volumes),
             env: None,
             cmd: None,
-            labels: None,
+            labels: Some(labels),
             cpu_limit: None,
             memory_limit: None,
-            network_mode: None,
+            network_mode: Some(LABUH_NETWORK.to_string()),
             networks: None,
             extra_hosts: None,
             restart_policy: Some("always".to_string()),
@@ -243,9 +270,9 @@ impl CaddyClient {
         match resp {
             Ok(r) if r.status().is_success() => return Ok(()),
             _ => {
-                // Initialize basic srv0 if it doesn't exist
+                // Initialize basic srv0 if it doesn't exist - listen on 443 for HTTPS
                 let base_config = serde_json::json!({
-                    "listen": [":80"],
+                    "listen": [":443"],
                     "routes": []
                 });
 
