@@ -5,7 +5,7 @@ use crate::domain::runtime::{ContainerConfig, RuntimePort};
 use crate::error::{AppError, Result};
 
 /// Version tag for Caddy container - increment to force re-creation
-const CADDY_CONTAINER_VERSION: &str = "v2";
+const CADDY_CONTAINER_VERSION: &str = "v3";
 const LABUH_NETWORK: &str = "labuh-network";
 
 /// Caddy Admin API client for dynamic configuration
@@ -113,19 +113,9 @@ impl CaddyClient {
                     == 0)
         {
             tracing::info!("Caddyfile not found. Creating default...");
+            // Minimal Caddyfile - only admin API. Route config is done via JSON API.
             let default_caddyfile = r#"{
     admin 0.0.0.0:2019
-}
-
-:80 {
-    handle /api/* {
-        reverse_proxy labuh:3000
-    }
-
-    # Frontend fallback
-    handle {
-        reverse_proxy labuh:3000
-    }
 }
 "#;
             std::fs::write(&caddyfile_path, default_caddyfile).map_err(|e| {
@@ -236,10 +226,11 @@ impl CaddyClient {
             "handle": handlers
         });
 
+        // Insert domain route at the BEGINNING (index 0) so it takes priority
         let response = self
             .request_with_fallback(
                 reqwest::Method::POST,
-                "/config/apps/http/servers/srv0/routes",
+                "/config/apps/http/servers/srv0/routes/0",
                 Some(route_config.clone()),
             )
             .await?;
@@ -261,21 +252,48 @@ impl CaddyClient {
         Ok(())
     }
 
-    /// Ensure srv0 exists in Caddy JSON config
+    /// Ensure srv0 exists and is configured for HTTPS
     async fn ensure_srv0(&self) -> Result<()> {
+        // Always set srv0 to listen on :443 for HTTPS
+        let base_config = serde_json::json!({
+            "listen": [":443"],
+            "routes": []
+        });
+
         let resp = self
             .request_with_fallback(reqwest::Method::GET, "/config/apps/http/servers/srv0", None)
             .await;
 
         match resp {
-            Ok(r) if r.status().is_success() => return Ok(()),
-            _ => {
-                // Initialize basic srv0 if it doesn't exist - listen on 443 for HTTPS
-                let base_config = serde_json::json!({
-                    "listen": [":443"],
-                    "routes": []
-                });
+            Ok(r) if r.status().is_success() => {
+                // Check if already listening on 443
+                let body: serde_json::Value = r.json().await.unwrap_or_default();
+                let listen = body.get("listen").and_then(|l| l.as_array());
+                let has_443 = listen
+                    .map(|arr| {
+                        arr.iter()
+                            .any(|v| v.as_str().map(|s| s.contains("443")).unwrap_or(false))
+                    })
+                    .unwrap_or(false);
 
+                if !has_443 {
+                    tracing::info!("Upgrading srv0 to HTTPS (port 443)...");
+                    // Get existing routes to preserve them
+                    let routes = body.get("routes").cloned().unwrap_or(serde_json::json!([]));
+                    let updated_config = serde_json::json!({
+                        "listen": [":443"],
+                        "routes": routes
+                    });
+                    self.request_with_fallback(
+                        reqwest::Method::PUT,
+                        "/config/apps/http/servers/srv0",
+                        Some(updated_config),
+                    )
+                    .await?;
+                }
+                return Ok(());
+            }
+            _ => {
                 let init_resp = self
                     .request_with_fallback(
                         reqwest::Method::PUT,
