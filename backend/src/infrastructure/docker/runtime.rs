@@ -1,9 +1,11 @@
 use async_trait::async_trait;
 use bollard::Docker;
 use bollard::container::LogOutput;
+use bollard::exec::{CreateExecOptions, StartExecOptions};
 use bollard::models::{
-    EndpointPortConfig, EndpointSettings, EndpointSpec, Limit, LocalNodeState,
-    NetworkAttachmentConfig, NetworkConnectRequest, NetworkCreateRequest, ServiceSpec,
+    ContainerCreateBody, EndpointPortConfig, EndpointSettings, EndpointSpec, HostConfig, Limit,
+    LocalNodeState, NetworkAttachmentConfig, NetworkConnectRequest, NetworkCreateRequest,
+    NetworkingConfig, PortBinding, RestartPolicy, RestartPolicyNameEnum, ServiceSpec,
     ServiceSpecMode, ServiceSpecModeReplicated, SwarmInitRequest, SwarmJoinRequest, TaskSpec,
     TaskSpecContainerSpec, TaskSpecResources,
 };
@@ -14,12 +16,15 @@ use bollard::query_parameters::{
     UpdateServiceOptions,
 };
 use futures::StreamExt;
+use http_body_util::Full;
+use hyper::body::Bytes;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tokio::sync::mpsc;
 
 use crate::domain::runtime::{
-    ContainerConfig, ContainerInfo, ContainerPort, EndpointInfo, NetworkInfo, RuntimePort,
-    ServiceConfig, ServiceInfo,
+    ContainerConfig, ContainerInfo, ContainerPort, EndpointInfo, NetworkInfo, NodeResources,
+    RuntimePort, ServiceConfig, ServiceInfo, SwarmNode, SwarmTokens,
 };
 use crate::error::{AppError, Result};
 
@@ -79,10 +84,6 @@ impl RuntimePort for DockerRuntimeAdapter {
     }
 
     async fn create_container(&self, config: ContainerConfig) -> Result<String> {
-        use bollard::models::{
-            ContainerCreateBody, EndpointSettings, HostConfig, NetworkingConfig, PortBinding,
-        };
-
         // Build exposed ports and port bindings
         let mut exposed_ports: Vec<String> = Vec::new();
         let mut port_bindings: bollard::models::PortMap = HashMap::new();
@@ -129,7 +130,6 @@ impl RuntimePort for DockerRuntimeAdapter {
 
         // Build restart policy
         let restart_policy = config.restart_policy.map(|p| {
-            use bollard::models::{RestartPolicy, RestartPolicyNameEnum};
             let name = match p.to_lowercase().as_str() {
                 "always" => RestartPolicyNameEnum::ALWAYS,
                 "unless-stopped" => RestartPolicyNameEnum::UNLESS_STOPPED,
@@ -537,8 +537,6 @@ impl RuntimePort for DockerRuntimeAdapter {
         context_path: &str,
         dockerfile_path: &str,
     ) -> Result<tokio_stream::wrappers::ReceiverStream<Result<String>>> {
-        use tokio::sync::mpsc;
-
         let options = BuildImageOptions {
             t: Some(image_name.to_string()),
             dockerfile: dockerfile_path.to_string(),
@@ -560,9 +558,6 @@ impl RuntimePort for DockerRuntimeAdapter {
         let tar_data_stream = tar_data;
 
         tokio::spawn(async move {
-            use http_body_util::Full;
-            use hyper::body::Bytes;
-
             let body = Full::new(Bytes::from(tar_data_stream));
             let mut stream =
                 docker.build_image(options, None, Some(http_body_util::Either::Left(body)));
@@ -593,8 +588,6 @@ impl RuntimePort for DockerRuntimeAdapter {
         id: &str,
         cmd: Vec<String>,
     ) -> Result<bollard::exec::CreateExecResults> {
-        use bollard::exec::CreateExecOptions;
-
         let options = CreateExecOptions {
             attach_stdout: Some(true),
             attach_stderr: Some(true),
@@ -614,8 +607,6 @@ impl RuntimePort for DockerRuntimeAdapter {
     }
 
     async fn connect_exec(&self, exec_id: &str) -> Result<bollard::exec::StartExecResults> {
-        use bollard::exec::StartExecOptions;
-
         let options = StartExecOptions {
             detach: false,
             tty: true,
@@ -899,7 +890,6 @@ impl RuntimePort for DockerRuntimeAdapter {
     }
 
     async fn list_nodes(&self) -> Result<Vec<crate::domain::runtime::SwarmNode>> {
-        use crate::domain::runtime::{NodeResources, SwarmNode};
         let nodes = self
             .docker
             .list_nodes(None::<ListNodesOptions>)
@@ -967,7 +957,6 @@ impl RuntimePort for DockerRuntimeAdapter {
     }
 
     async fn inspect_node(&self, id: &str) -> Result<crate::domain::runtime::SwarmNode> {
-        use crate::domain::runtime::{NodeResources, SwarmNode};
         let n = self
             .docker
             .inspect_node(id)
@@ -1032,7 +1021,6 @@ impl RuntimePort for DockerRuntimeAdapter {
     }
 
     async fn get_swarm_tokens(&self) -> Result<crate::domain::runtime::SwarmTokens> {
-        use crate::domain::runtime::SwarmTokens;
         let info = self
             .docker
             .inspect_swarm()
@@ -1337,8 +1325,6 @@ impl RuntimePort for DockerRuntimeAdapter {
     }
 
     async fn update_service_scale(&self, service_name: &str, replicas: u64) -> Result<()> {
-        use bollard::models::{ServiceSpecMode, ServiceSpecModeReplicated};
-
         // 1. Inspect service to get its current version and spec
         let service = self
             .docker

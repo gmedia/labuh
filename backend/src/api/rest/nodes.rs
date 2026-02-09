@@ -3,7 +3,7 @@ use ax_auth::CurrentUser;
 use axum::{
     Json, Router,
     extract::{Extension, Path, State},
-    routing::get,
+    routing::{get, post},
 };
 use std::sync::Arc;
 
@@ -86,7 +86,6 @@ pub async fn get_tokens(
 }
 
 pub fn node_routes(usecase: Arc<NodeUsecase>) -> Router {
-    use axum::routing::post;
     Router::new()
         .route("/", get(list_nodes))
         .route("/swarm", get(swarm_info))

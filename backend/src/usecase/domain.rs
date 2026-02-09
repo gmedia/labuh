@@ -6,6 +6,7 @@ use crate::infrastructure::caddy::client::CaddyClient;
 use crate::infrastructure::tunnel::manager::TunnelManager;
 use crate::usecase::dns::DnsUsecase;
 use chrono::Utc;
+use hickory_resolver::TokioResolver;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -288,8 +289,6 @@ impl DomainUsecase {
     }
 
     pub async fn verify_domain(&self, domain: &str) -> Result<DnsVerificationResult> {
-        use hickory_resolver::TokioResolver;
-
         let resolver = TokioResolver::builder_tokio()
             .expect("Failed to create resolver builder")
             .build();

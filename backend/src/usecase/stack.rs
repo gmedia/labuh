@@ -2,6 +2,7 @@ use chrono::Utc;
 use rand::distr::{Alphanumeric, SampleString};
 use std::path::Path;
 use std::sync::Arc;
+use tokio_stream::StreamExt;
 use uuid::Uuid;
 
 use crate::domain::compose::{parse_compose, service_to_container_request};
@@ -330,7 +331,6 @@ impl StackUsecase {
                         .build_image(&config.image, &context_path, &build.dockerfile)
                         .await?;
 
-                    use tokio_stream::StreamExt;
                     while let Some(log_result) = log_stream.next().await {
                         match log_result {
                             Ok(log) => {
